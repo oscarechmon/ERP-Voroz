@@ -1,0 +1,73 @@
+@import 'tailwindcss';
+@import 'primeicons/primeicons.css';
+
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.ts';
+@source '../**/*.vue';
+
+/* El modo oscuro se activa con la clase `.app-dark` en <html> (controlado por Pinia). */
+@custom-variant dark (&:where(.app-dark, .app-dark *));
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+
+    --color-brand-50: #eef4ff;
+    --color-brand-100: #d9e6ff;
+    --color-brand-200: #bcd3ff;
+    --color-brand-300: #8eb6ff;
+    --color-brand-400: #598eff;
+    --color-brand-500: #3366ff;
+    --color-brand-600: #1f47f0;
+    --color-brand-700: #1836d6;
+    --color-brand-800: #1a30ad;
+    --color-brand-900: #1c2f88;
+}
+
+/*
+ | Tokens de superficie del ERP (colores suaves estilo Odoo/Holded), con variante
+ | para modo oscuro. Se exponen como variables CSS para usarlas en componentes.
+ */
+:root {
+    --surface-ground: #f6f7fb;
+    --surface-card: #ffffff;
+    --surface-border: #e6e8f0;
+}
+
+.app-dark {
+    --surface-ground: #0f1117;
+    --surface-card: #171a23;
+    --surface-border: #262a36;
+    color-scheme: dark;
+}
+
+html,
+body {
+    background-color: var(--surface-ground);
+}
+
+/* Scrollbar sutil y moderno. */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--surface-border) 80%, transparent);
+    border-radius: 999px;
+}
+
+/* Transiciones suaves entre rutas. */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.fade-enter-from {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.fade-leave-to {
+    opacity: 0;
+}

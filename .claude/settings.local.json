@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -v)",
+      "Bash(composer -V)",
+      "Bash(npm -v)",
+      "Bash(mysql --version)",
+      "Read(//c/xampp/mysql/bin/**)",
+      "Bash(/c/xampp/mysql/bin/mysql.exe --version)",
+      "Bash(netstat -ano)",
+      "Bash(laravel --version)",
+      "Bash(composer create-project *)",
+      "Bash(php artisan *)",
+      "Bash(php /c/xampp/htdocs/voroz/src_tmp/artisan --version)",
+      "Bash(composer require *)",
+      "Bash(php --ini)",
+      "Read(//c/xampp/php/ext/**)",
+      "Read(//c/xampp/php/**)",
+      "Bash(php -m)",
+      "Bash(grep -i \"^gd$\")"
+    ]
+  }
+}

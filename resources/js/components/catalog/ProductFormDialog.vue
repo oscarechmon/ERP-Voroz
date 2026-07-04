@@ -1,0 +1,205 @@
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
+import InputNumber from 'primevue/inputnumber';
+import Select from 'primevue/select';
+import ToggleSwitch from 'primevue/toggleswitch';
+import Button from 'primevue/button';
+import Message from 'primevue/message';
+import { AxiosError } from 'axios';
+import { brandsApi, categoriesApi, productsApi, unitsApi, type Option, type Product } from '@/services/catalog';
+
+const props = defineProps<{ visible: boolean; product: Product | null }>();
+const emit = defineEmits<{ 'update:visible': [boolean]; saved: [] }>();
+
+const categories = ref<Option[]>([]);
+const brands = ref<Option[]>([]);
+const units = ref<Option[]>([]);
+const saving = ref(false);
+const errors = ref<Record<string, string[]>>({});
+const imageFile = ref<File | null>(null);
+
+const blank = () => ({
+    name: '',
+    code: '',
+    barcode: '',
+    sku: '',
+    description: '',
+    category_id: null as number | null,
+    brand_id: null as number | null,
+    unit_id: null as number | null,
+    cost: 0,
+    price: 0,
+    wholesale_price: null as number | null,
+    offer_price: null as number | null,
+    stock_min: 0,
+    stock_max: null as number | null,
+    is_active: true,
+});
+
+const form = ref(blank());
+const isEdit = computed(() => props.product !== null);
+const title = computed(() => (isEdit.value ? 'Editar producto' : 'Nuevo producto'));
+
+// Carga las opciones de selects una vez al abrir por primera vez.
+async function ensureOptions(): Promise<void> {
+    if (categories.value.length) return;
+    [categories.value, brands.value, units.value] = await Promise.all([
+        categoriesApi.options(),
+        brandsApi.options(),
+        unitsApi.options(),
+    ]);
+}
+
+watch(
+    () => props.visible,
+    async (open) => {
+        if (!open) return;
+        errors.value = {};
+        imageFile.value = null;
+        await ensureOptions();
+        if (props.product) {
+            const p = props.product;
+            form.value = {
+                name: p.name,
+                code: p.code,
+                barcode: p.barcode ?? '',
+                sku: p.sku ?? '',
+                description: p.description ?? '',
+                category_id: p.category_id,
+                brand_id: p.brand_id,
+                unit_id: p.unit_id,
+                cost: p.cost,
+                price: p.price,
+                wholesale_price: p.wholesale_price,
+                offer_price: p.offer_price,
+                stock_min: p.stock_min,
+                stock_max: p.stock_max,
+                is_active: p.is_active,
+            };
+        } else {
+            form.value = blank();
+        }
+    },
+);
+
+function onFile(e: Event): void {
+    const target = e.target as HTMLInputElement;
+    imageFile.value = target.files?.[0] ?? null;
+}
+
+const err = (field: string): string | undefined => errors.value[field]?.[0];
+
+async function submit(): Promise<void> {
+    saving.value = true;
+    errors.value = {};
+    try {
+        const payload = { ...form.value, image: imageFile.value };
+        await productsApi.save(payload, props.product?.id);
+        emit('saved');
+    } catch (e) {
+        const ax = e as AxiosError<{ errors?: Record<string, string[]>; message?: string }>;
+        if (ax.response?.status === 422) {
+            errors.value = ax.response.data.errors ?? {};
+        }
+    } finally {
+        saving.value = false;
+    }
+}
+
+const close = () => emit('update:visible', false);
+</script>
+
+<template>
+    <Dialog
+        :visible="visible"
+        modal
+        :header="title"
+        :style="{ width: '720px' }"
+        :dismissable-mask="true"
+        @update:visible="close"
+    >
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="md:col-span-2">
+                <label class="mb-1 block text-sm font-medium">Nombre *</label>
+                <InputText v-model="form.name" class="w-full" :invalid="!!err('name')" />
+                <Message v-if="err('name')" severity="error" size="small" variant="simple">{{ err('name') }}</Message>
+            </div>
+
+            <div>
+                <label class="mb-1 block text-sm font-medium">Código interno</label>
+                <InputText v-model="form.code" class="w-full" placeholder="Auto (PRD-000001)" :invalid="!!err('code')" />
+                <Message v-if="err('code')" severity="error" size="small" variant="simple">{{ err('code') }}</Message>
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">Código de barras</label>
+                <InputText v-model="form.barcode" class="w-full" placeholder="Auto EAN-13" />
+            </div>
+
+            <div>
+                <label class="mb-1 block text-sm font-medium">Categoría</label>
+                <Select v-model="form.category_id" :options="categories" option-label="name" option-value="id" class="w-full" filter show-clear placeholder="Seleccionar" />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">Marca</label>
+                <Select v-model="form.brand_id" :options="brands" option-label="name" option-value="id" class="w-full" filter show-clear placeholder="Seleccionar" />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">Unidad</label>
+                <Select v-model="form.unit_id" :options="units" option-label="name" option-value="id" class="w-full" show-clear placeholder="Seleccionar" />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">SKU</label>
+                <InputText v-model="form.sku" class="w-full" />
+            </div>
+
+            <div>
+                <label class="mb-1 block text-sm font-medium">Costo *</label>
+                <InputNumber v-model="form.cost" mode="currency" currency="PEN" locale="es-PE" class="w-full" :invalid="!!err('cost')" />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">Precio venta *</label>
+                <InputNumber v-model="form.price" mode="currency" currency="PEN" locale="es-PE" class="w-full" :invalid="!!err('price')" />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">Precio mayorista</label>
+                <InputNumber v-model="form.wholesale_price" mode="currency" currency="PEN" locale="es-PE" class="w-full" />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">Precio oferta</label>
+                <InputNumber v-model="form.offer_price" mode="currency" currency="PEN" locale="es-PE" class="w-full" />
+            </div>
+
+            <div>
+                <label class="mb-1 block text-sm font-medium">Stock mínimo</label>
+                <InputNumber v-model="form.stock_min" class="w-full" :min="0" />
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium">Stock máximo</label>
+                <InputNumber v-model="form.stock_max" class="w-full" :min="0" />
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="mb-1 block text-sm font-medium">Descripción</label>
+                <Textarea v-model="form.description" class="w-full" rows="2" auto-resize />
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="mb-1 block text-sm font-medium">Imagen</label>
+                <input type="file" accept="image/*" class="text-sm" @change="onFile" />
+            </div>
+
+            <div class="flex items-center gap-2">
+                <ToggleSwitch v-model="form.is_active" input-id="active" />
+                <label for="active" class="text-sm font-medium">Producto activo</label>
+            </div>
+        </div>
+
+        <template #footer>
+            <Button label="Cancelar" text @click="close" />
+            <Button :label="isEdit ? 'Guardar cambios' : 'Crear producto'" icon="pi pi-check" :loading="saving" @click="submit" />
+        </template>
+    </Dialog>
+</template>

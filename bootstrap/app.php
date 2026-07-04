@@ -12,6 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Hosting compartido (Hostinger) sirve tras un proxy que termina el TLS.
+        // Confiar en el proxy permite que Laravel detecte HTTPS (X-Forwarded-Proto)
+        // y marque la cookie de sesión como Secure: imprescindible para Sanctum SPA.
+        $middleware->trustProxies(at: '*');
+
         // Habilita la autenticación SPA de Sanctum (sesión por cookie) para /api.
         $middleware->statefulApi();
 

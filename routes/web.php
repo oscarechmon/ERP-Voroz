@@ -21,6 +21,25 @@ use Illuminate\Support\Facades\Route;
 Route::get('deploy/{token}', function (string $token) {
     abort_unless(hash_equals(hash('sha256', (string) config('app.key')), $token), 404);
 
+    // Diagnóstico: muestra los valores realmente cargados (sin secretos) para
+    // depurar problemas de sesión/Sanctum en producción.  → /deploy/{token}?info=1
+    if (request()->boolean('info')) {
+        return response()->json([
+            'app_env' => config('app.env'),
+            'app_url' => config('app.url'),
+            'app_debug' => config('app.debug'),
+            'request_secure' => request()->secure(),
+            'request_host' => request()->getHost(),
+            'session_driver' => config('session.driver'),
+            'session_domain' => config('session.domain'),
+            'session_secure_cookie' => config('session.secure'),
+            'session_same_site' => config('session.same_site'),
+            'sanctum_stateful' => config('sanctum.stateful'),
+            'users_count' => \App\Models\User::count(),
+            'admin_exists' => \App\Models\User::where('email', 'admin@voroz.test')->exists(),
+        ]);
+    }
+
     $output = [];
     $run = function (string $name, array $params = []) use (&$output): void {
         Artisan::call($name, $params);

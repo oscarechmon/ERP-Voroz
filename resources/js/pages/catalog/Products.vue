@@ -11,6 +11,7 @@ import InputIcon from 'primevue/inputicon';
 import Tag from 'primevue/tag';
 import Skeleton from 'primevue/skeleton';
 import ProductFormDialog from '@/components/catalog/ProductFormDialog.vue';
+import LabelPrintDialog from '@/components/catalog/LabelPrintDialog.vue';
 import { productsApi, type Product } from '@/services/catalog';
 import { useAuthStore } from '@/stores/auth';
 
@@ -33,6 +34,9 @@ const params = reactive({
 
 const dialogVisible = ref(false);
 const editing = ref<Product | null>(null);
+
+const labelDialogVisible = ref(false);
+const labelIds = ref<number[]>([]);
 
 const money = (n: number): string => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n);
 
@@ -86,12 +90,24 @@ function onSaved(): void {
     load();
 }
 
+/** Abre el diálogo de etiquetas para los ids dados (una fila o la selección). */
+function openLabels(ids: number[]): void {
+    if (!ids.length) return;
+    labelIds.value = ids;
+    labelDialogVisible.value = true;
+}
+
+/** Exporta el catálogo (respeta el buscador actual) a Excel o CSV. */
+function exportProducts(format: 'xlsx' | 'csv'): void {
+    window.open(productsApi.exportUrl(format, { search: params.search }), '_blank');
+}
+
 function confirmDelete(product: Product): void {
     confirm.require({
         message: `¿Eliminar el producto «${product.name}»?`,
         header: 'Confirmar eliminación',
         icon: 'pi pi-exclamation-triangle',
-        rejectlabel: 'Cancelar',
+        rejectLabel: 'Cancelar',
         acceptLabel: 'Eliminar',
         acceptClass: 'p-button-danger',
         accept: async () => {
@@ -130,7 +146,15 @@ onMounted(load);
                 <h1 class="text-2xl font-bold tracking-tight">Productos</h1>
                 <p class="text-sm text-slate-500">{{ total }} productos en el catálogo</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <Button
+                    v-if="selection.length && auth.can('products.print')"
+                    :label="`Etiquetas (${selection.length})`"
+                    icon="pi pi-tags"
+                    severity="secondary"
+                    outlined
+                    @click="openLabels(selection.map((p) => p.id))"
+                />
                 <Button
                     v-if="selection.length"
                     :label="`Eliminar (${selection.length})`"
@@ -138,6 +162,22 @@ onMounted(load);
                     severity="danger"
                     outlined
                     @click="confirmBulkDelete"
+                />
+                <Button
+                    v-if="auth.can('products.export')"
+                    label="Excel"
+                    icon="pi pi-file-excel"
+                    severity="success"
+                    outlined
+                    @click="exportProducts('xlsx')"
+                />
+                <Button
+                    v-if="auth.can('products.export')"
+                    label="CSV"
+                    icon="pi pi-file"
+                    severity="secondary"
+                    outlined
+                    @click="exportProducts('csv')"
                 />
                 <Button
                     v-if="auth.can('products.create')"
@@ -226,6 +266,15 @@ onMounted(load);
                     <template #body="{ data }">
                         <div class="flex justify-end gap-1">
                             <Button
+                                v-if="auth.can('products.print')"
+                                icon="pi pi-tag"
+                                text
+                                rounded
+                                size="small"
+                                @click="openLabels([data.id])"
+                                v-tooltip.top="'Imprimir etiqueta'"
+                            />
+                            <Button
                                 v-if="auth.can('products.edit')"
                                 icon="pi pi-pencil"
                                 text
@@ -251,5 +300,6 @@ onMounted(load);
         </div>
 
         <ProductFormDialog v-model:visible="dialogVisible" :product="editing" @saved="onSaved" />
+        <LabelPrintDialog v-model:visible="labelDialogVisible" :ids="labelIds" />
     </div>
 </template>

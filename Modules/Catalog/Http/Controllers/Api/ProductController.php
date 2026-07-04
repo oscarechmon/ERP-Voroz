@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Http\Controllers\Api;
 
+use App\Core\Exceptions\BusinessException;
 use App\Core\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Excel as ExcelWriter;
+use Maatwebsite\Excel\Facades\Excel;
+use Modules\Catalog\Exports\ProductsExport;
 use Modules\Catalog\Http\Requests\StoreProductRequest;
 use Modules\Catalog\Http\Requests\UpdateProductRequest;
 use Modules\Catalog\Http\Resources\ProductResource;
 use Modules\Catalog\Services\BarcodeService;
 use Modules\Catalog\Services\ProductService;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * API de Productos. Autorización por permisos (middleware en las rutas).
@@ -76,17 +81,34 @@ class ProductController extends ApiController
         return $this->ok(new ProductResource($this->service->scan($barcode)));
     }
 
+    /** Exporta el catálogo (respetando el buscador) a Excel o CSV. */
+    public function export(Request $request): BinaryFileResponse
+    {
+        $products = $this->service->all($request->all())->load(['category', 'brand', 'unit']);
+        $format = strtolower((string) $request->query('export', 'xlsx'));
+        $filename = 'productos-' . now()->format('Ymd_His');
+
+        return match ($format) {
+            'xlsx' => Excel::download(new ProductsExport($products), "{$filename}.xlsx", ExcelWriter::XLSX),
+            'csv' => Excel::download(new ProductsExport($products), "{$filename}.csv", ExcelWriter::CSV),
+            default => throw new BusinessException('Formato no soportado. Usa xlsx o csv.'),
+        };
+    }
+
     /** Devuelve la etiqueta (código de barras + QR) del producto para imprimir. */
     public function label(int $product): JsonResponse
     {
         $model = $this->service->find($product);
+        $value = $model->barcode ?? $model->code;
+        // EAN-13 sólo si el valor es numérico de 13 dígitos; si no, CODE128 (siempre válido).
+        $type = preg_match('/^\d{13}$/', (string) $value) === 1 ? 'EAN13' : 'CODE128';
 
         return $this->ok([
             'name' => $model->name,
             'code' => $model->code,
             'price' => (float) $model->price,
-            'barcode_png' => $this->barcodes->png($model->barcode ?? $model->code, 'EAN13'),
-            'qr_png' => $this->barcodes->qr($model->barcode ?? $model->code),
+            'barcode_png' => $this->barcodes->png($value, $type),
+            'qr_png' => $this->barcodes->qr($value),
         ]);
     }
 }

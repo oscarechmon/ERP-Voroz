@@ -29,6 +29,15 @@ export interface Product {
     created_at: string | null;
 }
 
+/** Datos de la etiqueta imprimible de un producto (código de barras + QR). */
+export interface ProductLabel {
+    name: string;
+    code: string;
+    price: number;
+    barcode_png: string;
+    qr_png: string;
+}
+
 export interface Category {
     id: number;
     parent_id: number | null;
@@ -96,6 +105,18 @@ export const productsApi = {
     },
     async scan(barcode: string): Promise<Product> {
         return unwrap<Product>(await http.get(`/products/scan/${encodeURIComponent(barcode)}`));
+    },
+    /** Etiqueta imprimible (código de barras + QR) de un producto. */
+    async label(id: number): Promise<ProductLabel> {
+        return unwrap<ProductLabel>(await http.get(`/products/${id}/label`));
+    },
+    /** URL de exportación del catálogo (se abre en nueva pestaña; usa la sesión activa). */
+    exportUrl(format: 'xlsx' | 'csv', params: Record<string, unknown> = {}): string {
+        const qs = new URLSearchParams({ export: format });
+        Object.entries(params).forEach(([k, v]) => {
+            if (v !== null && v !== undefined && v !== '') qs.append(k, String(v));
+        });
+        return `/api/v1/products/export?${qs.toString()}`;
     },
 };
 

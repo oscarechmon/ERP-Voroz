@@ -18,6 +18,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/', 'index')->middleware('permission:products.view');
         Route::post('/', 'store')->middleware('permission:products.create');
         Route::get('scan/{barcode}', 'scan')->middleware('permission:products.view');
+        Route::get('export', 'export')->middleware('permission:products.export');
         Route::post('bulk-destroy', 'bulkDestroy')->middleware('permission:products.delete');
         Route::get('{product}', 'show')->whereNumber('product')->middleware('permission:products.view');
         Route::get('{product}/label', 'label')->whereNumber('product')->middleware('permission:products.print');

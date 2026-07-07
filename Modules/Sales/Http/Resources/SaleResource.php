@@ -6,8 +6,9 @@ namespace Modules\Sales\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\Sales\Models\Sale;
 
-/** @mixin \Modules\Sales\Models\Sale */
+/** @mixin Sale */
 class SaleResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -27,6 +28,9 @@ class SaleResource extends JsonResource
             'payment_status' => $this->payment_status,
             'notes' => $this->notes,
             'sold_at' => $this->sold_at?->toIso8601String(),
+            'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            'cancel_reason' => $this->cancel_reason,
+            'cancelled_by' => $this->whenLoaded('canceller', fn () => $this->canceller?->name),
             'customer' => $this->whenLoaded('customer', fn () => $this->customer ? [
                 'id' => $this->customer->id,
                 'name' => $this->customer->name,

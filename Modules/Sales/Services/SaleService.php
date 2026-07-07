@@ -30,9 +30,7 @@ class SaleService
         'cotizacion' => 'C001',
     ];
 
-    public function __construct(private readonly StockService $stock)
-    {
-    }
+    public function __construct(private readonly StockService $stock) {}
 
     /**
      * Procesa una venta completa.
@@ -178,6 +176,52 @@ class SaleService
         });
     }
 
+    /**
+     * Anula una venta ya emitida: la marca como anulada y devuelve el stock de
+     * cada producto al almacén de origen. La operación es atómica y queda
+     * registrada en auditoría (quién y cuándo la anuló) por el trait Auditable.
+     */
+    public function cancel(Sale $sale, ?string $reason = null): Sale
+    {
+        if ($sale->status === 'cancelled') {
+            throw new BusinessException('La venta ya se encuentra anulada.');
+        }
+        if ($sale->status === 'quotation') {
+            throw new BusinessException('Una cotización no puede anularse.');
+        }
+
+        return DB::transaction(function () use ($sale, $reason): Sale {
+            $sale->loadMissing('items');
+
+            // Reingresa al inventario lo vendido (sólo si la venta afectó un almacén).
+            if ($sale->warehouse_id) {
+                foreach ($sale->items as $item) {
+                    $product = Product::find($item->product_id);
+                    if ($product && $product->track_stock) {
+                        $this->stock->entry(
+                            $product->id,
+                            (int) $sale->warehouse_id,
+                            (float) $item->quantity,
+                            0, // No altera el costo promedio (reingreso por anulación).
+                            $sale,
+                            "Anulación venta {$sale->full_number}",
+                        );
+                    }
+                }
+            }
+
+            $sale->update([
+                'status' => 'cancelled',
+                'payment_status' => 'cancelled',
+                'cancelled_at' => now(),
+                'cancelled_by' => auth()->id(),
+                'cancel_reason' => $reason,
+            ]);
+
+            return $sale->fresh(['items', 'payments', 'customer', 'user', 'canceller']);
+        });
+    }
+
     /** Descompone un total en base imponible e IGV según si el precio incluye IGV. */
     private function splitTax(float $total, float $taxPercent, bool $pricesIncludeIgv): array
     {
@@ -200,7 +244,7 @@ class SaleService
      * Obtiene el siguiente correlativo del comprobante, bloqueando la fila de la
      * serie para evitar números duplicados ante ventas concurrentes.
      *
-     * @return array{0:string,1:int,2:string}  [serie, número, número completo]
+     * @return array{0:string,1:int,2:string} [serie, número, número completo]
      */
     private function nextDocumentNumber(string $docType, ?int $branchId): array
     {
@@ -224,7 +268,7 @@ class SaleService
         $number = $series->current_number + 1;
         $series->update(['current_number' => $number]);
 
-        $full = $seriesCode . '-' . str_pad((string) $number, 8, '0', STR_PAD_LEFT);
+        $full = $seriesCode.'-'.str_pad((string) $number, 8, '0', STR_PAD_LEFT);
 
         return [$seriesCode, $number, $full];
     }

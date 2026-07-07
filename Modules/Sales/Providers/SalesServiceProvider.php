@@ -16,6 +16,6 @@ class SalesServiceProvider extends ModuleServiceProvider
         parent::boot();
 
         // Vistas del módulo (namespace `sales::`) para los PDF de comprobantes.
-        $this->loadViewsFrom($this->modulePath . '/resources/views', 'sales');
+        $this->loadViewsFrom($this->modulePath.'/resources/views', 'sales');
     }
 }

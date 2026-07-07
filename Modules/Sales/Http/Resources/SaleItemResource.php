@@ -6,8 +6,9 @@ namespace Modules\Sales\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\Sales\Models\SaleItem;
 
-/** @mixin \Modules\Sales\Models\SaleItem */
+/** @mixin SaleItem */
 class SaleItemResource extends JsonResource
 {
     public function toArray(Request $request): array

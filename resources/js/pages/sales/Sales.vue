@@ -8,10 +8,15 @@ import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
+import Dialog from 'primevue/dialog';
+import Textarea from 'primevue/textarea';
+import { useToast } from 'primevue/usetoast';
+import { AxiosError } from 'axios';
 import { salesApi, DOC_TYPES, type Sale } from '@/services/sales';
 import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
+const toast = useToast();
 const rows = ref<Sale[]>([]);
 const total = ref(0);
 const loading = ref(true);
@@ -39,6 +44,34 @@ const onPage = (e: DataTablePageEvent): void => { params.page = e.page + 1; para
 const onSort = (e: DataTableSortEvent): void => { params.sort_by = (e.sortField as string) || 'sold_at'; params.sort_dir = e.sortOrder === 1 ? 'asc' : 'desc'; load(); };
 const reload = (): void => { params.page = 1; load(); };
 const openTicket = (s: Sale): void => { window.open(salesApi.ticketUrl(s.id), '_blank'); };
+
+// --- Anulación de venta --------------------------------------------------
+const cancelDialog = ref(false);
+const cancelTarget = ref<Sale | null>(null);
+const cancelReason = ref('');
+const cancelling = ref(false);
+
+const askCancel = (s: Sale): void => {
+    cancelTarget.value = s;
+    cancelReason.value = '';
+    cancelDialog.value = true;
+};
+
+async function confirmCancel(): Promise<void> {
+    if (!cancelTarget.value) return;
+    cancelling.value = true;
+    try {
+        await salesApi.cancel(cancelTarget.value.id, cancelReason.value.trim() || undefined);
+        toast.add({ severity: 'success', summary: 'Venta anulada', detail: 'El stock fue devuelto al inventario.', life: 3000 });
+        cancelDialog.value = false;
+        load();
+    } catch (e) {
+        const ax = e as AxiosError<{ message?: string }>;
+        toast.add({ severity: 'warn', summary: 'No se pudo anular', detail: ax.response?.data?.message, life: 4000 });
+    } finally {
+        cancelling.value = false;
+    }
+}
 
 onMounted(load);
 </script>
@@ -95,12 +128,41 @@ onMounted(load);
                         <Tag v-else value="Anulada" severity="danger" />
                     </template>
                 </Column>
-                <Column header="" header-style="width:5rem">
+                <Column header="" header-style="width:7rem">
                     <template #body="{ data }">
-                        <Button v-if="auth.can('sales.print')" icon="pi pi-print" text rounded size="small" @click="openTicket(data)" v-tooltip.top="'Imprimir'" />
+                        <div class="flex justify-end gap-1">
+                            <Button v-if="auth.can('sales.print')" icon="pi pi-print" text rounded size="small" @click="openTicket(data)" v-tooltip.top="'Imprimir'" />
+                            <Button
+                                v-if="auth.can('sales.cancel') && data.status === 'completed'"
+                                icon="pi pi-ban" text rounded size="small" severity="danger"
+                                @click="askCancel(data)" v-tooltip.top="'Anular venta'"
+                            />
+                        </div>
                     </template>
                 </Column>
             </DataTable>
         </div>
+
+        <!-- Diálogo de anulación -->
+        <Dialog v-model:visible="cancelDialog" modal header="Anular venta" :style="{ width: '460px' }">
+            <div class="space-y-4">
+                <div class="flex items-start gap-3 rounded-xl bg-rose-50 p-3 text-sm dark:bg-rose-500/10">
+                    <i class="pi pi-exclamation-triangle mt-0.5 text-rose-500"></i>
+                    <p class="text-slate-600 dark:text-slate-300">
+                        Vas a anular el comprobante <span class="font-semibold">{{ cancelTarget?.full_number }}</span>
+                        por <span class="font-semibold">{{ money(cancelTarget?.total ?? 0) }}</span>.
+                        El stock de los productos volverá al inventario y quedará registrado en auditoría quién realizó la anulación.
+                    </p>
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">Motivo <span class="text-slate-400">(opcional)</span></label>
+                    <Textarea v-model="cancelReason" rows="3" class="w-full" placeholder="Ej. Error de digitación, devolución del cliente…" maxlength="255" autofocus />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Cancelar" text @click="cancelDialog = false" :disabled="cancelling" />
+                <Button label="Anular venta" icon="pi pi-ban" severity="danger" :loading="cancelling" @click="confirmCancel" />
+            </template>
+        </Dialog>
     </div>
 </template>

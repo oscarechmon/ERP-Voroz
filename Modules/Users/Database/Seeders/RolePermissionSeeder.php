@@ -27,7 +27,7 @@ class RolePermissionSeeder extends Seeder
         'suppliers' => ['view', 'create', 'edit', 'delete', 'export'],
         'stock' => ['view', 'export'],
         'inventory' => ['view', 'create', 'edit', 'delete', 'export'],
-        'sales' => ['view', 'create', 'edit', 'delete', 'export', 'print'],
+        'sales' => ['view', 'create', 'edit', 'delete', 'export', 'print', 'cancel'],
         'purchases' => ['view', 'create', 'edit', 'delete', 'export'],
         'cashbox' => ['view', 'create', 'edit', 'export'],
         'reports' => ['view', 'export'],
@@ -70,10 +70,10 @@ class RolePermissionSeeder extends Seeder
         Role::findByName('Super Administrador')->syncPermissions($all);
         Role::findByName('Administrador')->syncPermissions($all);
 
-        Role::findByName('Supervisor')->syncPermissions($this->only([
+        Role::findByName('Supervisor')->syncPermissions(array_merge($this->only([
             'dashboard', 'products', 'categories', 'brands', 'stock', 'inventory',
             'sales', 'purchases', 'customers', 'suppliers', 'reports', 'audit',
-        ], ['view', 'export']));
+        ], ['view', 'export']), ['sales.cancel']));
 
         Role::findByName('Ventas')->syncPermissions([
             'dashboard.view',

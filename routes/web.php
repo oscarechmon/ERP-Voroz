@@ -57,6 +57,13 @@ Route::get('deploy/{token}', function (string $token) {
     if (request()->boolean('seed')) {
         $run('db:seed', ['--force' => true]);
     }
+    // Refresca sólo permisos/roles (idempotente, no toca datos): /deploy/{token}?perms=1
+    if (request()->boolean('perms')) {
+        $run('db:seed', [
+            '--force' => true,
+            '--class' => \Modules\Users\Database\Seeders\RolePermissionSeeder::class,
+        ]);
+    }
     if (request()->boolean('storage')) {
         $run('storage:link');
     }

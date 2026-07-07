@@ -6,6 +6,8 @@ namespace Modules\Dashboard\Services;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Modules\Catalog\Models\Product;
 use Modules\Contacts\Models\Customer;
 use Modules\Inventory\Models\Stock;
 use Modules\Sales\Models\Sale;
@@ -33,7 +35,9 @@ class DashboardService
             'out_of_stock' => Stock::where('quantity', '<=', 0)->count(),
             'low_stock' => Stock::whereRaw('stocks.quantity <= (select stock_min from products where products.id = stocks.product_id)')
                 ->where('quantity', '>', 0)->count(),
-            'profit_month' => $this->profitMonth($today),
+            'profit_today' => $this->profit(fn ($q) => $q->whereDate('sold_at', $today)),
+            'profit_month' => $this->profit(fn ($q) => $q->whereYear('sold_at', $today->year)->whereMonth('sold_at', $today->month)),
+            'products_stock' => $this->productsStock(),
             'sales_by_day' => $this->salesByDay(),
             'sales_by_category' => $this->salesByCategory(),
             'top_products' => $this->topProducts(),
@@ -50,12 +54,41 @@ class DashboardService
         return round((float) $query->sum('total'), 2);
     }
 
-    /** Utilidad del mes = suma de (precio - costo) * cantidad de los ítems vendidos. */
-    private function profitMonth(Carbon $today): float
+    /** Utilidad = suma de (precio - costo) * cantidad de los ítems de ventas completadas. */
+    private function profit(callable $scope): float
     {
-        return round((float) SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completed')
-            ->whereYear('sold_at', $today->year)->whereMonth('sold_at', $today->month))
-            ->sum(DB::raw('(price - cost) * quantity')), 2);
+        return round((float) SaleItem::whereHas('sale', function ($q) use ($scope): void {
+            $q->where('status', 'completed');
+            $scope($q);
+        })->sum(DB::raw('(price - cost) * quantity')), 2);
+    }
+
+    /**
+     * Stock actual de cada producto activo (para el carrusel del dashboard).
+     * Suma las existencias de todos los almacenes en una sola consulta agregada.
+     */
+    private function productsStock(): array
+    {
+        return Product::query()
+            ->leftJoin('stocks', 'stocks.product_id', '=', 'products.id')
+            ->where('products.is_active', true)
+            ->whereNull('products.deleted_at')
+            ->groupBy('products.id', 'products.name', 'products.stock_min', 'products.image_path')
+            ->orderBy('products.name')
+            ->limit(60)
+            ->get([
+                'products.name',
+                'products.stock_min',
+                'products.image_path',
+                DB::raw('COALESCE(SUM(stocks.quantity), 0) as stock'),
+            ])
+            ->map(fn ($r) => [
+                'name' => $r->name,
+                'stock' => round((float) $r->stock, 2),
+                'stock_min' => (float) $r->stock_min,
+                'image_url' => $r->image_path ? Storage::url($r->image_path) : null,
+            ])
+            ->all();
     }
 
     /** Ventas de los últimos 14 días agrupadas por fecha. */

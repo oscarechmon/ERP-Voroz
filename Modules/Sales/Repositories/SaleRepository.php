@@ -20,6 +20,6 @@ class SaleRepository extends BaseRepository
 
     protected function model(): Model
     {
-        return new Sale();
+        return new Sale;
     }
 }

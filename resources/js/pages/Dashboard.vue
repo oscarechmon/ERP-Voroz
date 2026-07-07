@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import http from '@/lib/http';
+import Carousel from 'primevue/carousel';
 import { useUiStore } from '@/stores/ui';
 import StatCard from '@/components/StatCard.vue';
+
+interface ProductStock {
+    name: string;
+    stock: number;
+    stock_min: number;
+    image_url: string | null;
+}
 
 interface Metrics {
     sales_today: number;
@@ -12,7 +20,9 @@ interface Metrics {
     out_of_stock: number;
     low_stock: number;
     new_customers: number;
+    profit_today: number;
     profit_month: number;
+    products_stock: ProductStock[];
     sales_by_day: { date: string; total: number }[];
     sales_by_category: { category: string; total: number }[];
     top_products: { name: string; qty: number; total: number }[];
@@ -26,6 +36,20 @@ const m = ref<Metrics | null>(null);
 
 const currency = (n: number): string => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n ?? 0);
 const dt = (s: string | null): string => (s ? new Date(s).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }) : '');
+
+// Estado del stock de un producto para colorear la tarjeta del carrusel.
+const stockState = (p: ProductStock): { label: string; classes: string } => {
+    if (p.stock <= 0) return { label: 'Sin stock', classes: 'text-rose-600 bg-rose-50 dark:bg-rose-500/10' };
+    if (p.stock_min > 0 && p.stock <= p.stock_min) return { label: 'Stock bajo', classes: 'text-amber-600 bg-amber-50 dark:bg-amber-500/10' };
+    return { label: 'Disponible', classes: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10' };
+};
+
+const carouselResponsive = [
+    { breakpoint: '1400px', numVisible: 4, numScroll: 1 },
+    { breakpoint: '1024px', numVisible: 3, numScroll: 1 },
+    { breakpoint: '768px', numVisible: 2, numScroll: 1 },
+    { breakpoint: '560px', numVisible: 1, numScroll: 1 },
+];
 
 onMounted(async () => {
     try {
@@ -84,16 +108,53 @@ const categoryChart = computed(() => {
         <!-- KPIs -->
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Ventas de hoy" :value="currency(m?.sales_today ?? 0)" icon="pi pi-dollar" tone="brand" :loading="loading" />
-            <StatCard label="Ventas del mes" :value="currency(m?.sales_month ?? 0)" icon="pi pi-calendar" tone="emerald" :loading="loading" />
-            <StatCard label="Ventas del año" :value="currency(m?.sales_year ?? 0)" icon="pi pi-chart-line" tone="violet" :loading="loading" />
-            <StatCard label="Utilidad del mes" :value="currency(m?.profit_month ?? 0)" icon="pi pi-percentage" tone="emerald" :loading="loading" hint="Precio − costo de lo vendido" />
+            <StatCard label="Utilidad de hoy" :value="currency(m?.profit_today ?? 0)" icon="pi pi-percentage" tone="emerald" :loading="loading" hint="Precio − costo de lo vendido hoy" />
+            <StatCard label="Ventas del mes" :value="currency(m?.sales_month ?? 0)" icon="pi pi-calendar" tone="violet" :loading="loading" />
+            <StatCard label="Utilidad del mes" :value="currency(m?.profit_month ?? 0)" icon="pi pi-chart-line" tone="emerald" :loading="loading" hint="Precio − costo de lo vendido" />
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Productos vendidos (mes)" :value="m?.products_sold ?? 0" icon="pi pi-box" tone="brand" :loading="loading" />
+            <StatCard label="Ventas del año" :value="currency(m?.sales_year ?? 0)" icon="pi pi-chart-bar" tone="brand" :loading="loading" />
+            <StatCard label="Productos vendidos (mes)" :value="m?.products_sold ?? 0" icon="pi pi-box" tone="violet" :loading="loading" />
             <StatCard label="Clientes nuevos" :value="m?.new_customers ?? 0" icon="pi pi-user-plus" tone="amber" :loading="loading" />
-            <StatCard label="Sin stock" :value="m?.out_of_stock ?? 0" icon="pi pi-exclamation-triangle" tone="rose" :loading="loading" hint="Requieren reposición" />
-            <StatCard label="Stock bajo" :value="m?.low_stock ?? 0" icon="pi pi-arrow-down" tone="amber" :loading="loading" />
+            <StatCard label="Stock bajo" :value="m?.low_stock ?? 0" icon="pi pi-arrow-down" tone="amber" :loading="loading" hint="Requieren reposición" />
+        </div>
+
+        <!-- Stock de productos (carrusel) -->
+        <div class="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-5 shadow-sm">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="font-semibold">Stock de productos</h3>
+                <span v-if="m?.products_stock?.length" class="text-xs text-slate-400">{{ m.products_stock.length }} producto(s)</span>
+            </div>
+
+            <Carousel
+                v-if="m?.products_stock?.length"
+                :value="m.products_stock" :num-visible="4" :num-scroll="1"
+                :responsive-options="carouselResponsive" :circular="(m.products_stock.length > 4)"
+                :show-navigators="(m.products_stock.length > 1)"
+            >
+                <template #item="{ data }">
+                    <div class="mx-2 rounded-xl border border-[var(--surface-border)] p-4">
+                        <div class="mb-3 grid h-24 place-items-center overflow-hidden rounded-lg bg-slate-50 dark:bg-slate-800/40">
+                            <img v-if="data.image_url" :src="data.image_url" :alt="data.name" class="h-full w-full object-contain" />
+                            <i v-else class="pi pi-box text-3xl text-slate-300"></i>
+                        </div>
+                        <p class="truncate text-sm font-medium" :title="data.name">{{ data.name }}</p>
+                        <div class="mt-2 flex items-end justify-between">
+                            <div>
+                                <p class="text-2xl font-bold leading-none">{{ data.stock }}</p>
+                                <p class="text-[11px] text-slate-400">unidades</p>
+                            </div>
+                            <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="stockState(data).classes">
+                                {{ stockState(data).label }}
+                            </span>
+                        </div>
+                    </div>
+                </template>
+            </Carousel>
+            <div v-else class="grid h-32 place-items-center text-sm text-slate-400">
+                {{ loading ? 'Cargando…' : 'Sin productos activos.' }}
+            </div>
         </div>
 
         <!-- Gráficos -->

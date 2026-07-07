@@ -38,6 +38,9 @@ export interface Sale {
     status: string;
     payment_status: string;
     sold_at: string | null;
+    cancelled_at?: string | null;
+    cancel_reason?: string | null;
+    cancelled_by?: string | null;
     customer?: { id: number; name: string; doc_number: string | null } | null;
     user?: string;
     items?: { description: string; quantity: number; price: number; subtotal: number }[];
@@ -70,6 +73,10 @@ export const salesApi = {
     },
     async checkout(payload: SalePayload): Promise<Sale> {
         return unwrap<Sale>(await http.post('/sales', payload));
+    },
+    /** Anula una venta y devuelve el stock al inventario. */
+    async cancel(id: number, reason?: string): Promise<Sale> {
+        return unwrap<Sale>(await http.post(`/sales/${id}/cancel`, { reason }));
     },
     /** URL del ticket PDF (se abre en nueva pestaña). */
     ticketUrl(id: number): string {

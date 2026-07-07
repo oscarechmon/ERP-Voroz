@@ -17,14 +17,15 @@ use OwenIt\Auditing\Contracts\Auditable;
 /** Venta / comprobante (ticket, boleta, factura o cotización). */
 class Sale extends Model implements Auditable
 {
-    use SoftDeletes;
     use AuditableTrait;
+    use SoftDeletes;
 
     protected $fillable = [
         'company_id', 'branch_id', 'warehouse_id', 'customer_id', 'user_id',
         'doc_type', 'series', 'number', 'full_number',
         'subtotal', 'tax', 'discount', 'total', 'tax_percent', 'paid', 'change',
         'status', 'payment_status', 'notes', 'sold_at',
+        'cancelled_at', 'cancelled_by', 'cancel_reason',
     ];
 
     protected $casts = [
@@ -36,6 +37,7 @@ class Sale extends Model implements Auditable
         'paid' => 'decimal:2',
         'change' => 'decimal:2',
         'sold_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     public function items(): HasMany
@@ -56,6 +58,12 @@ class Sale extends Model implements Auditable
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Usuario que anuló la venta (si aplica). */
+    public function canceller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 
     /** Ventas efectivas (no cotizaciones ni anuladas). */

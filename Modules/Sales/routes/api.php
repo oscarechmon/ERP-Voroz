@@ -14,5 +14,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/', 'store')->middleware('permission:sales.create');
         Route::get('{sale}', 'show')->whereNumber('sale')->middleware('permission:sales.view');
         Route::get('{sale}/ticket', 'ticket')->whereNumber('sale')->middleware('permission:sales.print');
+        Route::post('{sale}/cancel', 'cancel')->whereNumber('sale')->middleware('permission:sales.cancel');
     });
 });

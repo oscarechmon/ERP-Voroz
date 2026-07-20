@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
+import { AxiosError } from 'axios';
 import DataTable, { type DataTablePageEvent, type DataTableSortEvent } from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
@@ -10,6 +14,9 @@ import { purchasesApi, type Purchase } from '@/services/purchases';
 import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
+const router = useRouter();
+const toast = useToast();
+const confirm = useConfirm();
 const rows = ref<Purchase[]>([]);
 const total = ref(0);
 const loading = ref(true);
@@ -33,6 +40,26 @@ let t: number | undefined;
 const onSearch = (): void => { window.clearTimeout(t); t = window.setTimeout(() => { params.page = 1; load(); }, 350); };
 const onPage = (e: DataTablePageEvent): void => { params.page = e.page + 1; params.per_page = e.rows; load(); };
 const onSort = (e: DataTableSortEvent): void => { params.sort_by = (e.sortField as string) || 'purchased_at'; params.sort_dir = e.sortOrder === 1 ? 'asc' : 'desc'; load(); };
+
+const editPurchase = (p: Purchase): void => { router.push(`/purchases/${p.id}/edit`); };
+
+function confirmDelete(p: Purchase): void {
+    confirm.require({
+        message: `¿Eliminar la compra «${p.number}»? Se revertirá el stock ingresado.`,
+        header: 'Confirmar eliminación', icon: 'pi pi-exclamation-triangle',
+        acceptLabel: 'Eliminar', rejectLabel: 'Cancelar', acceptClass: 'p-button-danger',
+        accept: async () => {
+            try {
+                await purchasesApi.remove(p.id);
+                toast.add({ severity: 'success', summary: 'Compra eliminada', detail: 'Stock revertido', life: 3000 });
+                load();
+            } catch (e) {
+                const ax = e as AxiosError<{ message?: string }>;
+                toast.add({ severity: 'error', summary: 'Error', detail: ax.response?.data?.message ?? 'No se pudo eliminar la compra', life: 5000 });
+            }
+        },
+    });
+}
 
 onMounted(load);
 </script>
@@ -77,6 +104,14 @@ onMounted(load);
                 </Column>
                 <Column header="Registró">
                     <template #body="{ data }">{{ data.user ?? '—' }}</template>
+                </Column>
+                <Column v-if="auth.can('purchases.edit') || auth.can('purchases.delete')" header="" header-style="width:6rem">
+                    <template #body="{ data }">
+                        <div class="flex justify-end gap-1">
+                            <Button v-if="auth.can('purchases.edit')" icon="pi pi-pencil" text rounded size="small" @click="editPurchase(data)" />
+                            <Button v-if="auth.can('purchases.delete')" icon="pi pi-trash" text rounded size="small" severity="danger" @click="confirmDelete(data)" />
+                        </div>
+                    </template>
                 </Column>
             </DataTable>
         </div>

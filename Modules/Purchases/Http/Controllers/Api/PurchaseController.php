@@ -8,6 +8,7 @@ use App\Core\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Purchases\Http\Requests\StorePurchaseRequest;
+use Modules\Purchases\Http\Requests\UpdatePurchaseRequest;
 use Modules\Purchases\Http\Resources\PurchaseResource;
 use Modules\Purchases\Repositories\PurchaseRepository;
 use Modules\Purchases\Services\PurchaseService;
@@ -39,5 +40,21 @@ class PurchaseController extends ApiController
         $model = $this->repository->findOrFail($purchase, ['items', 'supplier', 'user']);
 
         return $this->ok(new PurchaseResource($model));
+    }
+
+    public function update(UpdatePurchaseRequest $request, int $purchase): JsonResponse
+    {
+        $model = $this->repository->findOrFail($purchase);
+        $updated = $this->service->update($model, $request->validated());
+
+        return $this->ok(new PurchaseResource($updated), "Compra {$updated->number} actualizada. Stock recalculado.");
+    }
+
+    public function destroy(int $purchase): JsonResponse
+    {
+        $model = $this->repository->findOrFail($purchase);
+        $this->service->delete($model);
+
+        return $this->ok(null, "Compra {$model->number} eliminada. Stock revertido.");
     }
 }

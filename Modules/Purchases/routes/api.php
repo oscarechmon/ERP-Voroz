@@ -13,5 +13,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/', 'index')->middleware('permission:purchases.view');
         Route::post('/', 'store')->middleware('permission:purchases.create');
         Route::get('{purchase}', 'show')->whereNumber('purchase')->middleware('permission:purchases.view');
+        Route::put('{purchase}', 'update')->whereNumber('purchase')->middleware('permission:purchases.edit');
+        Route::delete('{purchase}', 'destroy')->whereNumber('purchase')->middleware('permission:purchases.delete');
     });
 });

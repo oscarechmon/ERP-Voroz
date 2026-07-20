@@ -6,8 +6,8 @@ namespace Modules\Purchases\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-/** Validación del registro de compras. */
-class StorePurchaseRequest extends FormRequest
+/** Validación de la edición de una compra. */
+class UpdatePurchaseRequest extends FormRequest
 {
     public function authorize(): bool
     {

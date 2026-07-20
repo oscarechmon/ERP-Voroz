@@ -79,6 +79,12 @@ const routes: RouteRecordRaw[] = [
                 meta: { title: 'Registrar compra', permission: 'purchases.create' },
             },
             {
+                path: 'purchases/:id/edit',
+                name: 'purchases.edit',
+                component: () => import('@/pages/purchases/PurchaseCreate.vue'),
+                meta: { title: 'Editar compra', permission: 'purchases.edit' },
+            },
+            {
                 path: 'cashbox',
                 name: 'cashbox',
                 component: () => import('@/pages/cashbox/Cashbox.vue'),

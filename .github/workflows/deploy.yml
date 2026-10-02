@@ -154,6 +154,9 @@ jobs:
         # de PHP; aquí se le llama hasta que responde done:true.
         run: |
           DEPLOY_URL=$(printf '%s' "$DEPLOY_URL" | tr -d '[:space:]')
+          # El token tampoco lleva espacios: un Enter al pegar el secreto
+          # haría que el servidor responda 403 aunque el valor sea el correcto.
+          DEPLOY_TOKEN=$(printf '%s' "$DEPLOY_TOKEN" | tr -d '[:space:]')
 
           for intento in $(seq 1 60); do
             respuesta=$(curl --fail-with-body --silent --show-error --max-time 300 \

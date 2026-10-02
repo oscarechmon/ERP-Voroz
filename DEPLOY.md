@@ -236,7 +236,7 @@ subdominio. Si subes la versión en hPanel, súbela también en el workflow.
 | `curl: (6)` / `curl: (60)` al subir | `FTP_SERVER` debe ser el nombre del servidor, `algo.hstgr.io`, ni `ftp.dominio` ni la IP. |
 | `No hay release.zip que publicar` | El zip no llegó a `public_html/sistema`: revisa a qué carpeta apunta la cuenta FTP y `FTP_DIR`. |
 | `404` al publicar | `DEPLOY_TOKEN` vacío en el `.env`, config vieja en caché, o falta el `.htaccess` de `public_html/sistema`. |
-| `403` al publicar | El token del `.env` y el secreto de GitHub no coinciden. |
+| `403` al publicar | El token del `.env` y el secreto `DEPLOY_TOKEN` de **este** repositorio (no el de sin_excusas) no coinciden. Tras cambiar el del `.env`, `php artisan optimize`. |
 | `Laravel no se reconoce bajo '/'` en el último paso | `public/index.php` del servidor no es el de este repositorio, o `ASSET_URL` del workflow no está vacío. |
 | El subdominio muestra la página por defecto de Hostinger | Falta el `.htaccess` en `public_html/sistema` (o no se extrajo el zip). |
 | Error 419 o la sesión se cierra sola | Se cambió el `.env` sin `php artisan optimize`. |

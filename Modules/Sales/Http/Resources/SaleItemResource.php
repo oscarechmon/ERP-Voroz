@@ -16,6 +16,8 @@ class SaleItemResource extends JsonResource
         return [
             'id' => $this->id,
             'product_id' => $this->product_id,
+            'employee_id' => $this->employee_id,
+            'employee' => $this->whenLoaded('employee', fn () => $this->employee?->name),
             'description' => $this->description,
             'quantity' => (float) $this->quantity,
             'price' => (float) $this->price,

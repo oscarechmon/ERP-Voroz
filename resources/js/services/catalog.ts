@@ -1,8 +1,8 @@
 import http, { apiUrl } from '@/lib/http';
 import type { Paginated, TableQuery } from '@/types';
 
-/** Tipos del dominio Catálogo. */
-export type ProductType = 'product' | 'service';
+/** Tipos del dominio Catálogo. Un `package` lo crea el módulo Paquetes (no se edita aquí). */
+export type ProductType = 'product' | 'service' | 'package';
 
 /** Producto con stock o servicio (sin stock); los servicios también llegan de la web. */
 export const PRODUCT_TYPES: { label: string; value: ProductType }[] = [

@@ -11,7 +11,7 @@ use Modules\Contacts\Repositories\Contracts\CustomerRepositoryInterface;
 
 class CustomerRepository extends BaseRepository implements CustomerRepositoryInterface
 {
-    protected array $searchable = ['name', 'doc_number', 'email', 'phone'];
+    protected array $searchable = ['code', 'name', 'doc_number', 'email', 'phone', 'whatsapp'];
 
     protected array $filterable = ['doc_type', 'is_active'];
 

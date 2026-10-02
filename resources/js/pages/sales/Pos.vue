@@ -8,19 +8,25 @@ import Button from 'primevue/button';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import Textarea from 'primevue/textarea';
+import ToggleSwitch from 'primevue/toggleswitch';
+import Tag from 'primevue/tag';
 import { AxiosError } from 'axios';
-import { productsApi, type Product } from '@/services/catalog';
+import { productsApi, type Product, type ProductType } from '@/services/catalog';
 import { customersApi, type Customer } from '@/services/contacts';
 import { inventoryApi, type Warehouse } from '@/services/inventory';
+import { employeesApi, type Employee } from '@/services/staff';
 import { salesApi, DOC_TYPES, PAYMENT_METHODS, type PaymentInput } from '@/services/sales';
 
 interface CartLine {
     product_id: number;
+    type: ProductType;
     code: string;
     name: string;
     price: number;
     quantity: number;
     stock: number;
+    /** Quién atendió (solo servicios). */
+    employee_id: number | null;
 }
 
 const toast = useToast();
@@ -38,6 +44,9 @@ const customerId = ref<number | null>(null);
 const docType = ref('ticket');
 const notes = ref('');
 const processing = ref(false);
+const employees = ref<Employee[]>([]);
+/** Venta con saldo pendiente: se cobra lo que se paga ahora y el resto después. */
+const allowBalance = ref(false);
 
 const payments = ref<PaymentInput[]>([{ method: 'efectivo', amount: 0 }]);
 
@@ -49,7 +58,12 @@ const igv = computed(() => total.value - total.value / 1.18);
 const base = computed(() => total.value - igv.value);
 const paid = computed(() => payments.value.reduce((s, p) => s + (p.amount || 0), 0));
 const change = computed(() => Math.max(paid.value - total.value, 0));
-const canCheckout = computed(() => cart.value.length > 0 && (docType.value === 'cotizacion' || paid.value + 0.001 >= total.value));
+const balance = computed(() => Math.max(total.value - paid.value, 0));
+const hasPackage = computed(() => cart.value.some((l) => l.type === 'package'));
+const isWalkIn = computed(() => !customerId.value || customers.value.find((c) => c.id === customerId.value)?.name === 'Público general');
+const canCheckout = computed(() => cart.value.length > 0
+    && (docType.value === 'cotizacion' || paid.value + 0.001 >= total.value || (allowBalance.value && !isWalkIn.value))
+    && !(hasPackage.value && isWalkIn.value && docType.value !== 'cotizacion'));
 
 // --- Búsqueda / escaneo ---
 let t: number | undefined;
@@ -90,7 +104,7 @@ function addToCart(p: Product): void {
     if (existing) {
         existing.quantity += 1;
     } else {
-        cart.value.push({ product_id: p.id, code: p.code, name: p.name, price: p.price, quantity: 1, stock: p.current_stock });
+        cart.value.push({ product_id: p.id, type: p.type, code: p.code, name: p.name, price: p.price, quantity: 1, stock: p.current_stock, employee_id: null });
     }
     query.value = '';
     results.value = [];
@@ -112,8 +126,11 @@ function addPayment(): void {
 function clearCart(): void {
     cart.value = [];
     notes.value = '';
+    allowBalance.value = false;
     payments.value = [{ method: 'efectivo', amount: 0 }];
 }
+
+const typeLabel = (p: Product): string => (p.type === 'service' ? 'Servicio' : p.type === 'package' ? 'Paquete de sesiones' : `Stock: ${p.current_stock}`);
 
 async function checkout(): Promise<void> {
     processing.value = true;
@@ -123,10 +140,14 @@ async function checkout(): Promise<void> {
             customer_id: customerId.value,
             warehouse_id: warehouseId.value,
             notes: notes.value || undefined,
-            items: cart.value.map((l) => ({ product_id: l.product_id, quantity: l.quantity, price: l.price })),
+            allow_balance: docType.value !== 'cotizacion' && allowBalance.value,
+            items: cart.value.map((l) => ({ product_id: l.product_id, quantity: l.quantity, price: l.price, employee_id: l.employee_id })),
             payments: docType.value === 'cotizacion' ? [] : payments.value.filter((p) => p.amount > 0),
         });
-        toast.add({ severity: 'success', summary: `Venta ${sale.full_number}`, detail: `Total ${money(sale.total)} · Vuelto ${money(sale.change)}`, life: 4000 });
+        const detail = (sale.balance ?? 0) > 0
+            ? `Total ${money(sale.total)} · Saldo pendiente ${money(sale.balance ?? 0)}`
+            : `Total ${money(sale.total)} · Vuelto ${money(sale.change)}`;
+        toast.add({ severity: 'success', summary: `Venta ${sale.full_number}`, detail, life: 4000 });
         if (docType.value !== 'cotizacion') window.open(salesApi.ticketUrl(sale.id), '_blank');
         clearCart();
     } catch (e) {
@@ -139,6 +160,7 @@ async function checkout(): Promise<void> {
 
 onMounted(async () => {
     [warehouses.value, customers.value] = await Promise.all([inventoryApi.warehouses(), customersApi.options()]);
+    employeesApi.options().then((list) => { employees.value = list; }).catch(() => { employees.value = []; });
     warehouseId.value = warehouses.value.find((w) => w.is_default)?.id ?? warehouses.value[0]?.id ?? null;
     customerId.value = customers.value.find((c) => c.name === 'Público general')?.id ?? null;
     scanRef.value?.focus();
@@ -177,7 +199,7 @@ onMounted(async () => {
                         <i v-else class="pi pi-box text-2xl text-slate-300"></i>
                     </span>
                     <span class="line-clamp-2 text-sm font-medium">{{ p.name }}</span>
-                    <span class="mt-1 text-xs text-slate-400">{{ p.type === 'service' ? 'Servicio' : `Stock: ${p.current_stock}` }}</span>
+                    <span class="mt-1 text-xs text-slate-400">{{ typeLabel(p) }}</span>
                     <span class="mt-1 font-bold text-brand-600">{{ money(p.price) }}</span>
                 </button>
                 <div v-if="!results.length" class="col-span-full grid place-items-center py-16 text-center text-sm text-slate-400">
@@ -206,7 +228,10 @@ onMounted(async () => {
                 <div v-for="(line, i) in cart" :key="line.product_id" class="rounded-xl border border-[var(--surface-border)] p-2">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
-                            <p class="truncate text-sm font-medium">{{ line.name }}</p>
+                            <p class="truncate text-sm font-medium">
+                                {{ line.name }}
+                                <Tag v-if="line.type === 'package'" value="Paquete" severity="info" class="ml-1" />
+                            </p>
                             <p class="text-xs text-slate-400">{{ line.code }}</p>
                         </div>
                         <Button icon="pi pi-times" text rounded size="small" severity="danger" @click="removeLine(i)" />
@@ -219,7 +244,14 @@ onMounted(async () => {
                         <InputNumber v-model="line.price" mode="currency" currency="PEN" locale="es-PE" class="flex-1" input-class="text-right" />
                         <span class="w-24 text-right text-sm font-semibold">{{ money(line.price * line.quantity) }}</span>
                     </div>
+                    <Select
+                        v-if="line.type === 'service' && employees.length" v-model="line.employee_id" :options="employees" option-label="name" option-value="id"
+                        show-clear placeholder="¿Quién atendió? (opcional)" class="mt-2 w-full" size="small"
+                    />
                 </div>
+                <p v-if="hasPackage && isWalkIn" class="rounded-lg bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                    <i class="pi pi-info-circle mr-1"></i>Selecciona el cliente: el paquete queda a su nombre con su saldo de sesiones.
+                </p>
             </div>
 
             <!-- Totales y pago -->
@@ -241,7 +273,14 @@ onMounted(async () => {
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-slate-500">Pagado {{ money(paid) }}</span>
-                        <span class="font-semibold">Vuelto {{ money(change) }}</span>
+                        <span v-if="allowBalance && balance > 0" class="font-semibold text-amber-600">Saldo {{ money(balance) }}</span>
+                        <span v-else class="font-semibold">Vuelto {{ money(change) }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <ToggleSwitch v-model="allowBalance" input-id="pos-balance" :disabled="isWalkIn" />
+                        <label for="pos-balance" :class="isWalkIn ? 'text-slate-400' : ''">
+                            Dejar saldo pendiente<span v-if="isWalkIn" class="text-xs"> (elige un cliente)</span>
+                        </label>
                     </div>
                 </template>
 

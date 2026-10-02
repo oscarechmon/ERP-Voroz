@@ -6,6 +6,7 @@ namespace Modules\Contacts\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Modules\Contacts\Models\Customer;
 
 /** Validación de clientes con reglas de documento peruano. */
 class CustomerRequest extends FormRequest
@@ -27,8 +28,18 @@ class CustomerRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
+            'whatsapp' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string', 'max:255'],
+            'district' => ['nullable', 'string', 'max:100'],
+            'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
+            'gender' => ['nullable', Rule::in(Customer::GENDERS)],
+            'how_knew' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'allergies' => ['nullable', 'string', 'max:2000'],
+            'restrictions' => ['nullable', 'string', 'max:2000'],
+            'contraindications' => ['nullable', 'string', 'max:2000'],
+            'medications' => ['nullable', 'string', 'max:2000'],
+            'relevant_info' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['boolean'],
         ];
     }

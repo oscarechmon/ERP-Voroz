@@ -148,20 +148,29 @@ o un push nuevo.
 
 ## Conexión con la web (sin_excusas)
 
-El sistema es el **dueño del catálogo y del stock**: productos, insumos y
-servicios, con sus precios, se crean y editan aquí (**Productos y servicios**),
-y el stock se mueve aquí (compras, ajustes, ventas). La web guarda una copia
-para mostrarla y decide lo suyo: imágenes, descripciones y qué se publica.
+El sistema es **el único lugar donde se opera el centro**:
+
+- **Centro:** Agenda, Atenciones (consumen la sesión del paquete, sacan los
+  insumos del stock y generan la comisión), Paquetes, Personal y Comisiones.
+- **Ventas:** POS (también servicios y paquetes; un paquete exige cliente y le
+  crea su saldo de sesiones), ventas con **saldo pendiente** que se cobran
+  después (Historial → Cobrar saldo), y **Pedidos online** con su seguimiento.
+- **Clientes** con su ficha completa (datos personales y antecedentes).
+- Catálogo y stock: productos, insumos, servicios (con los insumos que usa cada
+  uno) y paquetes; compras, ajustes, kardex.
+
+La web conserva lo suyo: contenido, datos del sitio, imágenes, descripciones,
+qué se publica y la tienda (carrito, cobro con Izipay, "Mis pedidos").
 
 | Qué pasa | Cómo viaja |
 |---|---|
-| Cambias un producto o su stock aquí | El sistema avisa a la web al instante (`POST /erp/catalogo`) |
-| Un cliente paga en la tienda online | La web lo registra aquí como **venta del canal web** (etiqueta *Web* en Ventas), que descuenta stock |
-| Se anula ese pedido en la web | Se anula aquí la venta y vuelve el stock |
-| Se confirma una atención con insumos | Los insumos salen del stock de aquí, con su línea de kardex |
+| Cambias un producto, servicio, paquete o su stock aquí | El sistema avisa a la web al instante (`POST /erp/catalogo`) |
+| Alguien crea una cuenta en la tienda | La web lo enlaza con su ficha de aquí (la crea si no existe) |
+| Se crea o se cobra un pedido en la tienda | La web lo manda aquí (`POST /integration/orders`); cobrado, se registra como **venta del canal web** y descuenta stock |
+| Mueves un pedido online (preparar, enviar, entregar, anular) | Se avisa a la web (`POST /erp/pedidos/{código}/estado`) y el cliente lo ve; anular un pedido cobrado anula su venta y devuelve el stock |
 
-Todo usa el **almacén por defecto** (Configuración → Almacenes): su stock es
-el que ve la tienda online.
+Todo usa el **almacén por defecto** (Configuración → Almacenes): su stock es el
+que ve la tienda online y de él salen los insumos de las atenciones.
 
 Se activa con dos líneas en el `.env` del sistema:
 
@@ -170,12 +179,21 @@ INTEGRATION_TOKEN=<cadena larga al azar, la misma que ERP_TOKEN en la web>
 INTEGRATION_WEB_URL=https://sinexcusas.org.pe
 ```
 
-y `php artisan optimize`. Los pasos completos para conectarlas por primera vez
-(incluida el alta del catálogo que ya tenía la web) están en el `DEPLOY.md` de
-sin_excusas, porque se ejecutan desde allá.
+y `php artisan optimize`. Los pasos para conectarlas por primera vez y traer el
+historial de la web (`erp:vincular` y `erp:migrar`, que se ejecutan allá) están
+en el `DEPLOY.md` de sin_excusas.
+
+Los permisos de los módulos del centro y los roles **Recepción** y
+**Especialista** los agrega solos la migración de esa versión al desplegar. Si
+algún día hiciera falta rehacerlos, por SSH en `public_html/sistema`:
+
+```bash
+php artisan db:seed --class="Modules\Users\Database\Seeders\RolePermissionSeeder" --force
+php artisan optimize
+```
 
 Si la web no contesta un aviso, el cambio igual se guarda aquí y queda en el
-log; el botón **Sincronizar ahora** del inventario de la web lo recupera.
+log; el botón **Sincronizar ahora** de la web (o su cron) lo recupera.
 
 ## Cómo funciona la publicación
 
@@ -208,6 +226,7 @@ subdominio. Si subes la versión en hPanel, súbela también en el workflow.
 | Error 419 o la sesión se cierra sola | Se cambió el `.env` sin `php artisan optimize`. |
 | El login acepta y vuelve a pedir credenciales | `SANCTUM_STATEFUL_DOMAINS` no es `sistema.sinexcusas.org.pe`. |
 | Imágenes rotas | `APP_URL` mal, o falta `php artisan storage:link`. |
+| Un menú nuevo (Centro, Pedidos online) no aparece | Faltan los permisos nuevos: ejecuta el `RolePermissionSeeder` (ver arriba) y vuelve a entrar. |
 | La web no se entera de los cambios del catálogo | Revisa `INTEGRATION_WEB_URL` y que `INTEGRATION_TOKEN` sea igual a `ERP_TOKEN` de la web; después `php artisan optimize`. El log del sistema dice "No se pudo avisar a la web…". |
 | `Este PHP no tiene la extensión zip` | hPanel → Configuración PHP → activar `zip`. |
 | Se queda extrayendo y no termina | Baja `DEPLOY_CHUNK` en el `.env` (por ejemplo 400) y vuelve a lanzar. |

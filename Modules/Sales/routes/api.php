@@ -15,5 +15,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('{sale}', 'show')->whereNumber('sale')->middleware('permission:sales.view');
         Route::get('{sale}/ticket', 'ticket')->whereNumber('sale')->middleware('permission:sales.print');
         Route::post('{sale}/cancel', 'cancel')->whereNumber('sale')->middleware('permission:sales.cancel');
+        Route::post('{sale}/payments', 'addPayment')->whereNumber('sale')->middleware('permission:sales.collect');
     });
 });

@@ -25,6 +25,7 @@ class SaleResource extends JsonResource
             'total' => (float) $this->total,
             'tax_percent' => (float) $this->tax_percent,
             'paid' => (float) $this->paid,
+            'balance' => $this->balance(),
             'change' => (float) $this->change,
             'status' => $this->status,
             'payment_status' => $this->payment_status,
@@ -44,6 +45,7 @@ class SaleResource extends JsonResource
                 'method' => $p->method,
                 'amount' => (float) $p->amount,
                 'reference' => $p->reference,
+                'paid_at' => ($p->paid_at ?? $p->created_at)?->toIso8601String(),
             ])),
         ];
     }

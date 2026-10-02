@@ -13,12 +13,23 @@ import Skeleton from 'primevue/skeleton';
 import Select from 'primevue/select';
 import ProductFormDialog from '@/components/catalog/ProductFormDialog.vue';
 import LabelPrintDialog from '@/components/catalog/LabelPrintDialog.vue';
+import ServiceSuppliesDialog from '@/components/catalog/ServiceSuppliesDialog.vue';
 import { productsApi, PRODUCT_TYPES, type Product, type ProductType } from '@/services/catalog';
 import { useAuthStore } from '@/stores/auth';
 
 const toast = useToast();
 const confirm = useConfirm();
 const auth = useAuthStore();
+
+/** Filtro por tipo: los paquetes se listan aquí pero se crean y editan en Paquetes. */
+const TYPE_FILTER = [...PRODUCT_TYPES, { label: 'Paquete', value: 'package' as ProductType }];
+
+const suppliesVisible = ref(false);
+const suppliesService = ref<Product | null>(null);
+function openSupplies(service: Product): void {
+    suppliesService.value = service;
+    suppliesVisible.value = true;
+}
 
 const rows = ref<Product[]>([]);
 const total = ref(0);
@@ -198,7 +209,7 @@ onMounted(load);
                 </IconField>
                 <Select
                     v-model="params.type"
-                    :options="PRODUCT_TYPES"
+                    :options="TYPE_FILTER"
                     option-label="label"
                     option-value="value"
                     show-clear
@@ -241,12 +252,13 @@ onMounted(load);
                         <div class="flex items-center gap-3">
                             <span class="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5">
                                 <img v-if="data.image_url" :src="data.image_url" class="h-full w-full object-cover" alt="" />
-                                <i v-else :class="['pi text-slate-400', data.type === 'service' ? 'pi-sparkles' : 'pi-box']"></i>
+                                <i v-else :class="['pi text-slate-400', data.type === 'service' ? 'pi-sparkles' : data.type === 'package' ? 'pi-gift' : 'pi-box']"></i>
                             </span>
                             <div>
                                 <p class="font-medium">
                                     {{ data.name }}
                                     <Tag v-if="data.type === 'service'" value="Servicio" severity="info" class="ml-1" />
+                                    <Tag v-if="data.type === 'package'" value="Paquete" severity="contrast" class="ml-1" />
                                 </p>
                                 <p class="text-xs text-slate-400">{{ data.code }} · {{ data.barcode }}</p>
                             </div>
@@ -277,9 +289,23 @@ onMounted(load);
                         <Tag :value="data.is_active ? 'Activo' : 'Inactivo'" :severity="data.is_active ? 'success' : 'danger'" />
                     </template>
                 </Column>
-                <Column header="" header-style="width:6rem">
+                <Column header="" header-style="width:8rem">
                     <template #body="{ data }">
-                        <div class="flex justify-end gap-1">
+                        <div v-if="data.type === 'package'" class="flex justify-end">
+                            <router-link v-if="auth.can('packages.view')" to="/packages">
+                                <Button icon="pi pi-external-link" text rounded size="small" v-tooltip.top="'Se edita en Paquetes'" />
+                            </router-link>
+                        </div>
+                        <div v-else class="flex justify-end gap-1">
+                            <Button
+                                v-if="data.type === 'service' && auth.can('products.edit')"
+                                icon="pi pi-flask"
+                                text
+                                rounded
+                                size="small"
+                                @click="openSupplies(data)"
+                                v-tooltip.top="'Insumos que usa'"
+                            />
                             <Button
                                 v-if="auth.can('products.print')"
                                 icon="pi pi-tag"
@@ -316,5 +342,6 @@ onMounted(load);
 
         <ProductFormDialog v-model:visible="dialogVisible" :product="editing" @saved="onSaved" />
         <LabelPrintDialog v-model:visible="labelDialogVisible" :ids="labelIds" />
+        <ServiceSuppliesDialog v-model:visible="suppliesVisible" :service="suppliesService" />
     </div>
 </template>

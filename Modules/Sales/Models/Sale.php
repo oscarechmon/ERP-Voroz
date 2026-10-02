@@ -26,6 +26,15 @@ class Sale extends Model implements Auditable
     /** Pedido pagado en la tienda online de la web (llega por la integración). */
     public const CHANNEL_WEB = 'web';
 
+    /** Venta hecha en el panel de la web antes de que todo pasara al sistema (histórico importado). */
+    public const CHANNEL_WEB_PANEL = 'web_panel';
+
+    public const PAYMENT_PAID = 'paid';
+
+    public const PAYMENT_PARTIAL = 'partial';
+
+    public const PAYMENT_PENDING = 'pending';
+
     protected $fillable = [
         'company_id', 'branch_id', 'warehouse_id', 'customer_id', 'user_id',
         'doc_type', 'channel', 'external_reference', 'series', 'number', 'full_number',
@@ -76,5 +85,25 @@ class Sale extends Model implements Auditable
     public function scopeCompleted(Builder $query): Builder
     {
         return $query->where('status', 'completed');
+    }
+
+    /** Lo que falta cobrar. */
+    public function balance(): float
+    {
+        if ($this->status !== 'completed') {
+            return 0.0;
+        }
+
+        return round(max((float) $this->total - (float) $this->paid, 0), 2);
+    }
+
+    /** Estado de cobro para un total y lo ya pagado (regla única para checkout, cobros e importación). */
+    public static function paymentStatusFor(float $total, float $paid): string
+    {
+        if ($paid + 0.001 >= $total) {
+            return self::PAYMENT_PAID;
+        }
+
+        return $paid > 0 ? self::PAYMENT_PARTIAL : self::PAYMENT_PENDING;
     }
 }

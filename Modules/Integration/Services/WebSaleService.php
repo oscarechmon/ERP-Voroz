@@ -7,10 +7,8 @@ namespace Modules\Integration\Services;
 use App\Core\Exceptions\BusinessException;
 use Illuminate\Support\Facades\DB;
 use Modules\Catalog\Models\Product;
-use Modules\Contacts\Models\Customer;
 use Modules\Sales\Models\Sale;
 use Modules\Sales\Services\SaleService;
-use Modules\Settings\Models\Company;
 
 /**
  * Pedidos pagados en la tienda online: se registran como ventas del sistema
@@ -24,6 +22,7 @@ class WebSaleService
     public function __construct(
         private readonly SaleService $sales,
         private readonly IntegrationWarehouse $warehouse,
+        private readonly CustomerResolver $customers,
     ) {}
 
     /** @param  array<string, mixed>  $data  Validado por WebSaleRequest. */
@@ -83,36 +82,13 @@ class WebSaleService
     }
 
     /**
-     * Busca al cliente por documento o correo; si no existe, lo crea con los
-     * datos del pedido.
+     * Busca al cliente (por su enlace con la web, documento o correo); si no
+     * existe, lo crea con los datos del pedido.
      *
      * @param  array<string, mixed>  $customer
      */
     private function customerId(array $customer): ?int
     {
-        if (empty($customer['name'])) {
-            return null;
-        }
-
-        $document = preg_replace('/\D/', '', (string) ($customer['document_number'] ?? ''));
-        $docType = match (strlen($document)) {
-            8 => 'DNI',
-            11 => 'RUC',
-            default => null,
-        };
-
-        $found = ($docType ? Customer::where('doc_number', $document)->first() : null)
-            ?? (! empty($customer['email']) ? Customer::where('email', $customer['email'])->first() : null);
-
-        return $found?->id ?? Customer::create([
-            'company_id' => Company::query()->value('id'),
-            'doc_type' => $docType ?? 'DNI',
-            'doc_number' => $docType ? $document : null,
-            'name' => $customer['name'],
-            'email' => $customer['email'] ?? null,
-            'phone' => $customer['phone'] ?? null,
-            'notes' => 'Cliente de la tienda online',
-            'is_active' => true,
-        ])->id;
+        return $this->customers->resolve($customer)?->id;
     }
 }

@@ -8,6 +8,8 @@ use App\Core\Exceptions\BusinessException;
 use Illuminate\Support\Facades\DB;
 use Modules\Catalog\Models\Product;
 use Modules\Inventory\Services\StockService;
+use Modules\Sales\Events\SaleCancelled;
+use Modules\Sales\Events\SaleCompleted;
 use Modules\Sales\Models\DocumentSeries;
 use Modules\Sales\Models\Sale;
 use Modules\Settings\Models\Company;
@@ -35,7 +37,10 @@ class SaleService
     /**
      * Procesa una venta completa.
      *
-     * @param  array  $data  doc_type, customer_id, warehouse_id, notes, discount, items[], payments[]
+     * Con `allow_balance` y un cliente, la venta puede quedar con saldo: se
+     * cobra lo que se pagó y el resto con {@see addPayment()}.
+     *
+     * @param  array  $data  doc_type, customer_id, warehouse_id, notes, discount, allow_balance, items[], payments[]
      */
     public function checkout(array $data): Sale
     {
@@ -44,7 +49,12 @@ class SaleService
             throw new BusinessException('La venta no tiene productos.');
         }
 
-        return DB::transaction(function () use ($data, $items): Sale {
+        $allowBalance = (bool) ($data['allow_balance'] ?? false);
+        if ($allowBalance && empty($data['customer_id'])) {
+            throw new BusinessException('Para dejar saldo pendiente, selecciona el cliente.');
+        }
+
+        return DB::transaction(function () use ($data, $items, $allowBalance): Sale {
             $user = auth()->user();
             $company = Company::find($user?->company_id) ?? Company::first();
             $taxPercent = (float) ($company?->igv_percent ?? 18);
@@ -66,6 +76,7 @@ class SaleService
                     $lineTotal = round((float) $row['price'] * (float) $row['quantity'], 2);
                     $lines[] = [
                         'product' => null,
+                        'employee_id' => null,
                         'description' => $row['description'],
                         'quantity' => (float) $row['quantity'],
                         'price' => (float) $row['price'],
@@ -95,6 +106,7 @@ class SaleService
 
                 $lines[] = [
                     'product' => $product,
+                    'employee_id' => ! empty($row['employee_id']) ? (int) $row['employee_id'] : null,
                     'description' => $product->name,
                     'quantity' => $qty,
                     'price' => $price,
@@ -114,15 +126,15 @@ class SaleService
             // 2) Descompone base imponible e IGV.
             [$base, $tax] = $this->splitTax($total, $taxPercent, $pricesIncludeIgv);
 
-            // 3) Valida pagos (salvo cotización).
-            $payments = $data['payments'] ?? [];
-            $paid = round(array_sum(array_map(static fn ($p) => (float) $p['amount'], $payments)), 2);
-            if (! $isQuotation) {
-                if ($paid + 0.001 < $total) {
-                    throw new BusinessException("El pago (S/{$paid}) es menor al total (S/{$total}).");
-                }
+            // 3) Valida pagos (salvo cotización). Con saldo permitido, puede faltar.
+            $payments = array_values(array_filter($data['payments'] ?? [], static fn ($p) => (float) $p['amount'] > 0));
+            $received = round(array_sum(array_map(static fn ($p) => (float) $p['amount'], $payments)), 2);
+            if (! $isQuotation && ! $allowBalance && $received + 0.001 < $total) {
+                throw new BusinessException("El pago (S/{$received}) es menor al total (S/{$total}).");
             }
-            $change = $isQuotation ? 0.0 : round(max($paid - $total, 0), 2);
+            $change = $isQuotation ? 0.0 : round(max($received - $total, 0), 2);
+            // Lo aplicado a la venta nunca supera el total: el exceso es vuelto.
+            $paid = round(min($received, $total), 2);
 
             // 4) Correlativo (con bloqueo) y cabecera.
             [$series, $number, $fullNumber] = $this->nextDocumentNumber($docType, $user?->branch_id);
@@ -145,7 +157,7 @@ class SaleService
                 'paid' => $isQuotation ? 0 : $paid,
                 'change' => $change,
                 'status' => $isQuotation ? 'quotation' : 'completed',
-                'payment_status' => $isQuotation ? 'pending' : 'paid',
+                'payment_status' => $isQuotation ? Sale::PAYMENT_PENDING : Sale::paymentStatusFor($total, $paid),
                 'notes' => $data['notes'] ?? null,
                 'sold_at' => now(),
             ]);
@@ -156,6 +168,7 @@ class SaleService
 
                 $sale->items()->create([
                     'product_id' => $line['product']?->id,
+                    'employee_id' => $line['employee_id'],
                     'description' => $line['description'],
                     'quantity' => $line['quantity'],
                     'price' => $line['price'],
@@ -177,19 +190,68 @@ class SaleService
                 }
             }
 
-            // 6) Pagos.
-            foreach ($payments as $payment) {
-                if ((float) $payment['amount'] <= 0) {
-                    continue;
+            // 6) Pagos (las cotizaciones no cobran).
+            if (! $isQuotation) {
+                foreach ($payments as $payment) {
+                    $sale->payments()->create([
+                        'method' => $payment['method'],
+                        'amount' => (float) $payment['amount'],
+                        'reference' => $payment['reference'] ?? null,
+                        'user_id' => $user?->id,
+                        'paid_at' => now(),
+                    ]);
                 }
-                $sale->payments()->create([
-                    'method' => $payment['method'],
-                    'amount' => (float) $payment['amount'],
-                    'reference' => $payment['reference'] ?? null,
-                ]);
+
+                // Otros módulos reaccionan a lo vendido (un paquete crea el saldo
+                // de sesiones del cliente) dentro de esta misma transacción.
+                SaleCompleted::dispatch($sale);
             }
 
             return $sale->load(['items', 'payments', 'customer', 'user']);
+        });
+    }
+
+    /**
+     * Cobra (todo o parte de) el saldo de una venta. Se bloquea la venta para
+     * que dos cobros simultáneos no la dejen sobrepagada.
+     */
+    public function addPayment(Sale $sale, string $method, float $amount, ?string $reference = null): Sale
+    {
+        return DB::transaction(function () use ($sale, $method, $amount, $reference): Sale {
+            /** @var Sale $locked */
+            $locked = Sale::whereKey($sale->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== 'completed') {
+                throw new BusinessException('Solo se cobra el saldo de una venta vigente.');
+            }
+
+            $amount = round($amount, 2);
+            $balance = $locked->balance();
+            if ($amount <= 0) {
+                throw new BusinessException('El monto debe ser mayor a cero.');
+            }
+            if ($balance <= 0) {
+                throw new BusinessException('La venta ya está pagada.');
+            }
+            if ($amount > $balance + 0.001) {
+                throw new BusinessException("El monto (S/{$amount}) supera el saldo (S/{$balance}).");
+            }
+
+            $locked->payments()->create([
+                'method' => $method,
+                'amount' => $amount,
+                'reference' => $reference,
+                'user_id' => auth()->id(),
+                'paid_at' => now(),
+            ]);
+
+            $paid = round((float) $locked->paid + $amount, 2);
+            $locked->update([
+                'paid' => $paid,
+                'payment_status' => Sale::paymentStatusFor((float) $locked->total, $paid),
+            ]);
+
+            return $locked->fresh(['items', 'payments', 'customer', 'user']);
         });
     }
 
@@ -234,6 +296,9 @@ class SaleService
                 'cancelled_by' => auth()->id(),
                 'cancel_reason' => $reason,
             ]);
+
+            // Lo que otros módulos crearon con la venta se deshace aquí mismo.
+            SaleCancelled::dispatch($sale);
 
             return $sale->fresh(['items', 'payments', 'customer', 'user', 'canceller']);
         });

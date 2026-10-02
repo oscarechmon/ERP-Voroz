@@ -56,6 +56,8 @@ class ProductService extends BaseService
 
     public function update(int|string $id, array $data): Model
     {
+        $this->guardPackage($id);
+
         $image = $data['image'] ?? null;
         unset($data['image']);
 
@@ -71,6 +73,30 @@ class ProductService extends BaseService
         }
 
         return $product->fresh();
+    }
+
+    public function delete(int|string $id): bool
+    {
+        $this->guardPackage($id);
+
+        return parent::delete($id);
+    }
+
+    public function bulkDelete(array $ids): int
+    {
+        if (Product::whereIn('id', $ids)->where('type', Product::TYPE_PACKAGE)->exists()) {
+            throw new BusinessException('Los paquetes se eliminan desde Paquetes.');
+        }
+
+        return parent::bulkDelete($ids);
+    }
+
+    /** El producto de un paquete lo mantiene el módulo Paquetes (sesiones, servicios, vigencia). */
+    private function guardPackage(int|string $id): void
+    {
+        if (Product::whereKey($id)->where('type', Product::TYPE_PACKAGE)->exists()) {
+            throw new BusinessException('Este ítem es un paquete: edítalo desde Paquetes.');
+        }
     }
 
     /** Busca un producto por código de barras (para el POS / pistola lectora). */

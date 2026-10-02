@@ -6,6 +6,8 @@ export interface SaleItemInput {
     quantity: number;
     price?: number;
     discount?: number;
+    /** Quién atendió (servicios). */
+    employee_id?: number | null;
 }
 
 export interface PaymentInput {
@@ -20,6 +22,8 @@ export interface SalePayload {
     warehouse_id?: number | null;
     discount?: number;
     notes?: string;
+    /** Deja saldo pendiente (se cobra después). Exige cliente. */
+    allow_balance?: boolean;
     items: SaleItemInput[];
     payments: PaymentInput[];
 }
@@ -27,8 +31,8 @@ export interface SalePayload {
 export interface Sale {
     id: number;
     doc_type: string;
-    /** pos = vendido en el POS; web = pedido pagado en la tienda online. */
-    channel: 'pos' | 'web';
+    /** pos = POS; web = pedido de la tienda online; web_panel = venta histórica del panel de la web. */
+    channel: 'pos' | 'web' | 'web_panel';
     external_reference: string | null;
     full_number: string;
     subtotal: number;
@@ -37,8 +41,10 @@ export interface Sale {
     total: number;
     tax_percent: number;
     paid: number;
+    balance?: number;
     change: number;
     status: string;
+    /** paid | partial | pending | cancelled */
     payment_status: string;
     sold_at: string | null;
     cancelled_at?: string | null;
@@ -46,9 +52,13 @@ export interface Sale {
     cancelled_by?: string | null;
     customer?: { id: number; name: string; doc_number: string | null } | null;
     user?: string;
-    items?: { description: string; quantity: number; price: number; subtotal: number }[];
-    payments?: { method: string; amount: number }[];
+    items?: { description: string; quantity: number; price: number; subtotal: number; employee?: string | null }[];
+    payments?: { method: string; amount: number; reference?: string | null; paid_at?: string | null }[];
 }
+
+/** Etiqueta de un medio de pago (incluye los que llegan de la web). */
+export const methodLabel = (m: string): string =>
+    ({ efectivo: 'Efectivo', yape: 'Yape', plin: 'Plin', transferencia: 'Transferencia', tarjeta: 'Tarjeta', izipay: 'Izipay (web)' })[m] ?? m;
 
 export const DOC_TYPES = [
     { label: 'Ticket', value: 'ticket' },
@@ -80,6 +90,10 @@ export const salesApi = {
     /** Anula una venta y devuelve el stock al inventario. */
     async cancel(id: number, reason?: string): Promise<Sale> {
         return unwrap<Sale>(await http.post(`/sales/${id}/cancel`, { reason }));
+    },
+    /** Cobra todo o parte del saldo pendiente. */
+    async addPayment(id: number, payment: PaymentInput): Promise<Sale> {
+        return unwrap<Sale>(await http.post(`/sales/${id}/payments`, payment));
     },
     /** URL del ticket PDF (se abre en nueva pestaña). */
     ticketUrl(id: number): string {

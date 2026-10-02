@@ -19,4 +19,8 @@ Route::middleware([VerifyIntegrationToken::class, 'throttle:240,1'])
         Route::post('sales', 'storeSale');
         Route::post('sales/{reference}/cancel', 'cancelSale');
         Route::post('consumptions', 'storeConsumption');
+        Route::post('customers', 'storeCustomer');
+        Route::post('orders', 'storeOrder');
+        Route::get('orders/statuses', 'orderStatuses');
+        Route::post('import/{kind}', 'import')->where('kind', '[a-z_]+');
     });

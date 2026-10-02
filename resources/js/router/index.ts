@@ -38,6 +38,42 @@ const routes: RouteRecordRaw[] = [
                 meta: { title: 'Ventas', permission: 'sales.view' },
             },
             {
+                path: 'agenda',
+                name: 'agenda',
+                component: () => import('@/pages/agenda/Agenda.vue'),
+                meta: { title: 'Agenda', permission: 'appointments.view' },
+            },
+            {
+                path: 'attendances',
+                name: 'attendances',
+                component: () => import('@/pages/attendances/Attendances.vue'),
+                meta: { title: 'Atenciones', permission: 'attendances.view' },
+            },
+            {
+                path: 'packages',
+                name: 'packages',
+                component: () => import('@/pages/packages/Packages.vue'),
+                meta: { title: 'Paquetes', permission: 'packages.view' },
+            },
+            {
+                path: 'employees',
+                name: 'employees',
+                component: () => import('@/pages/staff/Employees.vue'),
+                meta: { title: 'Personal', permission: 'employees.view' },
+            },
+            {
+                path: 'commissions',
+                name: 'commissions',
+                component: () => import('@/pages/commissions/Commissions.vue'),
+                meta: { title: 'Comisiones', permission: 'commissions.view' },
+            },
+            {
+                path: 'online-orders',
+                name: 'online-orders',
+                component: () => import('@/pages/online-orders/OnlineOrders.vue'),
+                meta: { title: 'Pedidos online', permission: 'online_orders.view' },
+            },
+            {
                 path: 'products',
                 name: 'products',
                 component: () => import('@/pages/catalog/Products.vue'),

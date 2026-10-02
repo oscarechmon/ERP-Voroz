@@ -34,6 +34,13 @@ class Product extends Model implements Auditable
     /** Servicio (facial, corporal…): se vende pero no lleva stock. */
     public const TYPE_SERVICE = 'service';
 
+    /**
+     * Paquete de sesiones: lo que el POS vende de un paquete del módulo
+     * Paquetes. Lo crea y mantiene ese módulo; no se edita como producto.
+     */
+    public const TYPE_PACKAGE = 'package';
+
+    /** Tipos que se crean desde el catálogo (el paquete nace en su módulo). */
     public const TYPES = [self::TYPE_PRODUCT, self::TYPE_SERVICE];
 
     protected $fillable = [
@@ -61,11 +68,11 @@ class Product extends Model implements Auditable
         'type' => self::TYPE_PRODUCT,
     ];
 
-    /** Un servicio nunca controla stock, venga de donde venga el cambio. */
+    /** Solo un bien físico controla stock, venga de donde venga el cambio. */
     protected static function booted(): void
     {
         static::saving(function (Product $product): void {
-            if ($product->isService()) {
+            if ($product->type !== self::TYPE_PRODUCT) {
                 $product->track_stock = false;
             }
         });
@@ -74,6 +81,11 @@ class Product extends Model implements Auditable
     public function isService(): bool
     {
         return $this->type === self::TYPE_SERVICE;
+    }
+
+    public function isPackage(): bool
+    {
+        return $this->type === self::TYPE_PACKAGE;
     }
 
     // --- Relaciones -------------------------------------------------------

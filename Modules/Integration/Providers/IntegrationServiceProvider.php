@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Modules\Integration\Providers;
 
 use App\Core\Providers\ModuleServiceProvider;
+use Illuminate\Support\Facades\Event;
 use Modules\Catalog\Models\Product;
 use Modules\Integration\Services\CatalogNotifier;
+use Modules\Integration\Services\OrderStatusNotifier;
+use Modules\Integration\Services\WebLinks;
 use Modules\Inventory\Models\Stock;
+use Modules\OnlineOrders\Events\OnlineOrderStatusChanged;
 
 /**
  * Proveedor del módulo Integración: la API que usa la web y el aviso de cambios
@@ -23,6 +27,8 @@ class IntegrationServiceProvider extends ModuleServiceProvider
 
         // Una sola instancia por petición: junta todos los cambios en un envío.
         $this->app->singleton(CatalogNotifier::class);
+        // Los enlaces con la web se cachean durante la petición (importación por tandas).
+        $this->app->scoped(WebLinks::class);
     }
 
     public function boot(): void
@@ -37,5 +43,8 @@ class IntegrationServiceProvider extends ModuleServiceProvider
         Product::deleted(fn (Product $product) => $notify($product->id));
         Product::restored(fn (Product $product) => $notify($product->id));
         Stock::saved(fn (Stock $stock) => $notify((int) $stock->product_id));
+
+        // Cada paso del seguimiento de un pedido se avisa a la web (lo ve el cliente).
+        Event::listen(OnlineOrderStatusChanged::class, OrderStatusNotifier::class);
     }
 }

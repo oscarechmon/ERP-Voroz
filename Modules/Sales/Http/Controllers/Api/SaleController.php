@@ -9,6 +9,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 use Modules\Sales\Http\Requests\StoreSaleRequest;
 use Modules\Sales\Http\Resources\SaleResource;
 use Modules\Sales\Repositories\SaleRepository;
@@ -40,9 +41,24 @@ class SaleController extends ApiController
 
     public function show(int $sale): JsonResponse
     {
-        $model = $this->repository->findOrFail($sale, ['items', 'payments', 'customer', 'user', 'canceller']);
+        $model = $this->repository->findOrFail($sale, ['items.employee', 'payments', 'customer', 'user', 'canceller']);
 
         return $this->ok(new SaleResource($model));
+    }
+
+    /** Cobra todo o parte del saldo pendiente de una venta. */
+    public function addPayment(Request $request, int $sale): JsonResponse
+    {
+        $data = $request->validate([
+            'method' => ['required', Rule::in(StoreSaleRequest::METHODS)],
+            'amount' => ['required', 'numeric', 'gt:0'],
+            'reference' => ['nullable', 'string', 'max:100'],
+        ], [], ['method' => 'medio de pago', 'amount' => 'monto']);
+
+        $model = $this->repository->findOrFail($sale);
+        $result = $this->service->addPayment($model, $data['method'], (float) $data['amount'], $data['reference'] ?? null);
+
+        return $this->ok(new SaleResource($result), 'Pago registrado.');
     }
 
     /** Anula una venta y devuelve el stock al inventario. */

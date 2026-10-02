@@ -10,9 +10,9 @@ use Modules\Sales\Models\Sale;
 
 class SaleRepository extends BaseRepository
 {
-    protected array $searchable = ['full_number', 'notes'];
+    protected array $searchable = ['full_number', 'external_reference', 'notes'];
 
-    protected array $filterable = ['doc_type', 'status', 'customer_id', 'user_id', 'payment_status'];
+    protected array $filterable = ['doc_type', 'status', 'customer_id', 'user_id', 'payment_status', 'channel'];
 
     protected array $sortable = ['id', 'full_number', 'total', 'sold_at', 'created_at'];
 

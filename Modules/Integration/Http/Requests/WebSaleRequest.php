@@ -22,6 +22,8 @@ class WebSaleRequest extends FormRequest
         return [
             'reference' => ['required', 'string', 'max:50'],
             'customer' => ['nullable', 'array'],
+            'customer.web_id' => ['nullable', 'integer'],
+            'customer.code' => ['nullable', 'string', 'max:20'],
             'customer.name' => ['nullable', 'string', 'max:255'],
             'customer.document_number' => ['nullable', 'string', 'max:20'],
             'customer.email' => ['nullable', 'string', 'max:255'],

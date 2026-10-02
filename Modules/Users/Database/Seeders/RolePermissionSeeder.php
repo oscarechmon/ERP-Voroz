@@ -27,9 +27,15 @@ class RolePermissionSeeder extends Seeder
         'suppliers' => ['view', 'create', 'edit', 'delete', 'export'],
         'stock' => ['view', 'export'],
         'inventory' => ['view', 'create', 'edit', 'delete', 'export'],
-        'sales' => ['view', 'create', 'edit', 'delete', 'export', 'print', 'cancel'],
+        'sales' => ['view', 'create', 'edit', 'delete', 'export', 'print', 'cancel', 'collect'],
         'purchases' => ['view', 'create', 'edit', 'delete', 'export'],
         'cashbox' => ['view', 'create', 'edit', 'export'],
+        'employees' => ['view', 'create', 'edit', 'delete'],
+        'packages' => ['view', 'create', 'edit', 'delete', 'assign'],
+        'appointments' => ['view', 'create', 'edit', 'delete'],
+        'attendances' => ['view', 'create'],
+        'commissions' => ['view', 'edit', 'pay'],
+        'online_orders' => ['view', 'edit'],
         'reports' => ['view', 'export'],
         'users' => ['view', 'create', 'edit', 'delete'],
         'roles' => ['view', 'create', 'edit', 'delete'],
@@ -59,6 +65,8 @@ class RolePermissionSeeder extends Seeder
             'Ventas',
             'Logística',
             'Caja',
+            'Recepción',
+            'Especialista',
             'Invitado',
         ];
         foreach ($roles as $role) {
@@ -79,8 +87,10 @@ class RolePermissionSeeder extends Seeder
             'dashboard.view',
             'products.view', 'products.print',
             'customers.view', 'customers.create', 'customers.edit',
-            'sales.view', 'sales.create', 'sales.print',
+            'sales.view', 'sales.create', 'sales.print', 'sales.collect',
             'stock.view',
+            'packages.view',
+            'employees.view',
         ]);
 
         Role::findByName('Logística')->syncPermissions([
@@ -96,9 +106,34 @@ class RolePermissionSeeder extends Seeder
 
         Role::findByName('Caja')->syncPermissions([
             'dashboard.view',
-            'sales.view', 'sales.create', 'sales.print',
+            'sales.view', 'sales.create', 'sales.print', 'sales.collect',
             'cashbox.view', 'cashbox.create', 'cashbox.edit', 'cashbox.export',
             'customers.view', 'customers.create',
+            'employees.view',
+        ]);
+
+        // Recepción del centro: clientes, agenda, atenciones, cobros, paquetes y pedidos web.
+        Role::findByName('Recepción')->syncPermissions([
+            'dashboard.view',
+            'products.view', 'stock.view',
+            'customers.view', 'customers.create', 'customers.edit',
+            'appointments.view', 'appointments.create', 'appointments.edit', 'appointments.delete',
+            'attendances.view', 'attendances.create',
+            'sales.view', 'sales.create', 'sales.print', 'sales.collect',
+            'cashbox.view', 'cashbox.create', 'cashbox.edit',
+            'packages.view', 'packages.assign',
+            'employees.view',
+            'online_orders.view', 'online_orders.edit',
+        ]);
+
+        // Especialista: su agenda y el registro de lo que atiende.
+        Role::findByName('Especialista')->syncPermissions([
+            'dashboard.view',
+            'customers.view',
+            'appointments.view',
+            'attendances.view', 'attendances.create',
+            'packages.view',
+            'commissions.view',
         ]);
 
         Role::findByName('Invitado')->syncPermissions(['dashboard.view']);

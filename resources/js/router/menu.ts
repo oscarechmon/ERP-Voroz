@@ -14,11 +14,23 @@ export interface MenuItem {
 export const menu: MenuItem[] = [
     { label: 'Dashboard', icon: 'pi pi-th-large', to: '/', permission: 'dashboard.view' },
     {
+        label: 'Centro',
+        icon: 'pi pi-heart',
+        children: [
+            { label: 'Agenda', icon: 'pi pi-calendar', to: '/agenda', permission: 'appointments.view' },
+            { label: 'Atenciones', icon: 'pi pi-check-square', to: '/attendances', permission: 'attendances.view' },
+            { label: 'Paquetes', icon: 'pi pi-gift', to: '/packages', permission: 'packages.view' },
+            { label: 'Personal', icon: 'pi pi-id-card', to: '/employees', permission: 'employees.view' },
+            { label: 'Comisiones', icon: 'pi pi-percentage', to: '/commissions', permission: 'commissions.view' },
+        ],
+    },
+    {
         label: 'Ventas',
         icon: 'pi pi-shopping-cart',
         children: [
             { label: 'Punto de venta', icon: 'pi pi-desktop', to: '/pos', permission: 'sales.create' },
             { label: 'Historial', icon: 'pi pi-list', to: '/sales', permission: 'sales.view' },
+            { label: 'Pedidos online', icon: 'pi pi-globe', to: '/online-orders', permission: 'online_orders.view' },
         ],
     },
     {

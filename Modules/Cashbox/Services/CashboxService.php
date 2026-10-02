@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Cashbox\Models\CashMovement;
 use Modules\Cashbox\Models\CashRegister;
 use Modules\Cashbox\Models\CashSession;
+use Modules\Sales\Models\Sale;
 use Modules\Sales\Models\SalePayment;
 
 /**
@@ -78,14 +79,7 @@ class CashboxService
         $session = $this->requireOpen($userId);
 
         return DB::transaction(function () use ($session, $countedAmount, $notes): CashSession {
-            // Ventas en efectivo del turno (pagos método efectivo de las ventas del usuario).
-            $cashSales = (float) SalePayment::query()
-                ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
-                ->where('sale_payments.method', 'efectivo')
-                ->where('sales.user_id', $session->user_id)
-                ->where('sales.status', 'completed')
-                ->where('sales.sold_at', '>=', $session->opened_at)
-                ->sum('sale_payments.amount');
+            $cashSales = $this->cashSales($session);
 
             $expected = round(
                 (float) $session->opening_amount + $cashSales + (float) $session->income - (float) $session->expense,
@@ -104,6 +98,39 @@ class CashboxService
 
             return $session->fresh(['register', 'movements']);
         });
+    }
+
+    /**
+     * Efectivo que entró por ventas en el turno: los cobros en efectivo que hizo
+     * el cajero desde la apertura (también el saldo de una venta anterior),
+     * menos el vuelto que salió de la caja.
+     *
+     * Los pagos anteriores a que se guardara quién cobró se atribuyen al
+     * vendedor y a la fecha de la venta, como antes.
+     */
+    public function cashSales(CashSession $session): float
+    {
+        $userId = $session->user_id;
+        $since = $session->opened_at;
+
+        $received = (float) SalePayment::query()
+            ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->where('sale_payments.method', 'efectivo')
+            ->where('sales.status', 'completed')
+            ->where(fn ($q) => $q
+                ->where(fn ($w) => $w->where('sale_payments.user_id', $userId)->where('sale_payments.paid_at', '>=', $since))
+                ->orWhere(fn ($w) => $w->whereNull('sale_payments.user_id')->where('sales.user_id', $userId)->where('sales.sold_at', '>=', $since)))
+            ->sum('sale_payments.amount');
+
+        $change = (float) Sale::query()
+            ->where('user_id', $userId)
+            ->where('status', 'completed')
+            ->where('sold_at', '>=', $since)
+            ->where('change', '>', 0)
+            ->whereHas('payments', fn ($q) => $q->where('method', 'efectivo'))
+            ->sum('change');
+
+        return round($received - $change, 2);
     }
 
     private function requireOpen(int $userId): CashSession

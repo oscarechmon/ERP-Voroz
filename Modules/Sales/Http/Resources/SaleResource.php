@@ -16,6 +16,8 @@ class SaleResource extends JsonResource
         return [
             'id' => $this->id,
             'doc_type' => $this->doc_type,
+            'channel' => $this->channel,
+            'external_reference' => $this->external_reference,
             'full_number' => $this->full_number,
             'subtotal' => (float) $this->subtotal,
             'tax' => (float) $this->tax,

@@ -177,7 +177,7 @@ onMounted(async () => {
                         <i v-else class="pi pi-box text-2xl text-slate-300"></i>
                     </span>
                     <span class="line-clamp-2 text-sm font-medium">{{ p.name }}</span>
-                    <span class="mt-1 text-xs text-slate-400">Stock: {{ p.current_stock }}</span>
+                    <span class="mt-1 text-xs text-slate-400">{{ p.type === 'service' ? 'Servicio' : `Stock: ${p.current_stock}` }}</span>
                     <span class="mt-1 font-bold text-brand-600">{{ money(p.price) }}</span>
                 </button>
                 <div v-if="!results.length" class="col-span-full grid place-items-center py-16 text-center text-sm text-slate-400">

@@ -14,7 +14,7 @@ class ProductRepository extends BaseRepository implements ProductRepositoryInter
 {
     protected array $searchable = ['name', 'code', 'barcode', 'sku'];
 
-    protected array $filterable = ['category_id', 'brand_id', 'unit_id', 'is_active'];
+    protected array $filterable = ['type', 'category_id', 'brand_id', 'unit_id', 'is_active'];
 
     protected array $sortable = ['id', 'name', 'code', 'price', 'cost', 'created_at'];
 

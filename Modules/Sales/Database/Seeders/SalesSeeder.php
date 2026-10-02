@@ -27,7 +27,7 @@ class SalesSeeder extends Seeder
             return;
         }
 
-        $admin = User::where('email', 'admin@voroz.test')->first();
+        $admin = User::where('email', 'admin@sistema.test')->first();
         $warehouse = Warehouse::where('is_default', true)->first();
         if (! $admin || ! $warehouse) {
             return;

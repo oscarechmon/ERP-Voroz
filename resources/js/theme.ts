@@ -6,7 +6,7 @@ import Aura from '@primevue/themes/aura';
  * Ajusta el color primario a la marca (azul índigo). Las superficies quedan a
  * cargo del preset Aura, coherente en modo claro y oscuro.
  */
-export const VorozPreset = definePreset(Aura, {
+export const SistemaPreset = definePreset(Aura, {
     semantic: {
         primary: {
             50: '#eef4ff',

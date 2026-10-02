@@ -22,7 +22,7 @@
 </head>
 <body>
     <div class="center">
-        <h1>{{ $company->business_name ?? 'Voroz' }}</h1>
+        <h1>{{ $company->business_name ?? config('app.name') }}</h1>
         @if($company?->ruc)<div>RUC: {{ $company->ruc }}</div>@endif
         @if($company?->address)<div class="muted">{{ $company->address }}</div>@endif
         @if($company?->phone)<div class="muted">Tel: {{ $company->phone }}</div>@endif
@@ -76,6 +76,6 @@
 
     <hr>
     <div class="center muted">¡Gracias por su compra!</div>
-    <div class="center muted">Generado por Voroz ERP</div>
+    <div class="center muted">Generado por {{ config('app.name') }}</div>
 </body>
 </html>

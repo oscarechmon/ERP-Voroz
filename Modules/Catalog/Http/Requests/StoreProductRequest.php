@@ -6,6 +6,7 @@ namespace Modules\Catalog\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Modules\Catalog\Models\Product;
 
 /** Validación para crear un producto. */
 class StoreProductRequest extends FormRequest
@@ -21,6 +22,7 @@ class StoreProductRequest extends FormRequest
             'code' => ['nullable', 'string', 'max:50', Rule::unique('products', 'code')],
             'barcode' => ['nullable', 'string', 'max:50'],
             'sku' => ['nullable', 'string', 'max:50'],
+            'type' => ['required', Rule::in(Product::TYPES)],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'category_id' => ['nullable', 'exists:categories,id'],
@@ -42,6 +44,7 @@ class StoreProductRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'type.in' => 'El tipo debe ser producto o servicio.',
             'name.required' => 'El nombre del producto es obligatorio.',
             'code.unique' => 'Ya existe un producto con este código interno.',
             'cost.required' => 'El costo es obligatorio.',
@@ -55,6 +58,7 @@ class StoreProductRequest extends FormRequest
     {
         // Normaliza los booleanos que llegan como "true"/"1"/on desde el formulario.
         $this->merge([
+            'type' => $this->input('type', Product::TYPE_PRODUCT),
             'track_stock' => $this->boolean('track_stock', true),
             'has_expiry' => $this->boolean('has_expiry'),
             'is_active' => $this->boolean('is_active', true),

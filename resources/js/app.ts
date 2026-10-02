@@ -10,7 +10,7 @@ import VueApexCharts from 'vue3-apexcharts';
 
 import App from './App.vue';
 import router from './router';
-import { VorozPreset } from './theme';
+import { SistemaPreset } from './theme';
 import { useAuthStore } from './stores/auth';
 
 const app = createApp(App);
@@ -20,7 +20,7 @@ app.use(createPinia());
 app.use(PrimeVue, {
     ripple: true,
     theme: {
-        preset: VorozPreset,
+        preset: SistemaPreset,
         options: {
             darkModeSelector: '.app-dark',
             // Coloca los estilos de PrimeVue en una capa CSS para que Tailwind pueda

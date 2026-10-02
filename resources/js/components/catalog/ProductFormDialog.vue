@@ -5,11 +5,12 @@ import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
+import SelectButton from 'primevue/selectbutton';
 import ToggleSwitch from 'primevue/toggleswitch';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import { AxiosError } from 'axios';
-import { brandsApi, categoriesApi, productsApi, unitsApi, type Option, type Product } from '@/services/catalog';
+import { brandsApi, categoriesApi, productsApi, unitsApi, PRODUCT_TYPES, type Option, type Product, type ProductType } from '@/services/catalog';
 
 const props = defineProps<{ visible: boolean; product: Product | null }>();
 const emit = defineEmits<{ 'update:visible': [boolean]; saved: [] }>();
@@ -22,6 +23,7 @@ const errors = ref<Record<string, string[]>>({});
 const imageFile = ref<File | null>(null);
 
 const blank = () => ({
+    type: 'product' as ProductType,
     name: '',
     code: '',
     barcode: '',
@@ -41,7 +43,9 @@ const blank = () => ({
 
 const form = ref(blank());
 const isEdit = computed(() => props.product !== null);
-const title = computed(() => (isEdit.value ? 'Editar producto' : 'Nuevo producto'));
+const isService = computed(() => form.value.type === 'service');
+const noun = computed(() => (isService.value ? 'servicio' : 'producto'));
+const title = computed(() => (isEdit.value ? `Editar ${noun.value}` : `Nuevo ${noun.value}`));
 
 // Carga las opciones de selects una vez al abrir por primera vez.
 async function ensureOptions(): Promise<void> {
@@ -63,6 +67,7 @@ watch(
         if (props.product) {
             const p = props.product;
             form.value = {
+                type: p.type,
                 name: p.name,
                 code: p.code,
                 barcode: p.barcode ?? '',
@@ -123,6 +128,12 @@ const close = () => emit('update:visible', false);
     >
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="md:col-span-2">
+                <label class="mb-1 block text-sm font-medium">Tipo</label>
+                <SelectButton v-model="form.type" :options="PRODUCT_TYPES" option-label="label" option-value="value" :allow-empty="false" />
+                <p v-if="isService" class="mt-1 text-xs text-slate-400">Los servicios se venden pero no llevan stock.</p>
+            </div>
+
+            <div class="md:col-span-2">
                 <label class="mb-1 block text-sm font-medium">Nombre *</label>
                 <InputText v-model="form.name" class="w-full" :invalid="!!err('name')" />
                 <Message v-if="err('name')" severity="error" size="small" variant="simple">{{ err('name') }}</Message>
@@ -172,11 +183,11 @@ const close = () => emit('update:visible', false);
                 <InputNumber v-model="form.offer_price" mode="currency" currency="PEN" locale="es-PE" class="w-full" />
             </div>
 
-            <div>
+            <div v-if="!isService">
                 <label class="mb-1 block text-sm font-medium">Stock mínimo</label>
                 <InputNumber v-model="form.stock_min" class="w-full" :min="0" />
             </div>
-            <div>
+            <div v-if="!isService">
                 <label class="mb-1 block text-sm font-medium">Stock máximo</label>
                 <InputNumber v-model="form.stock_max" class="w-full" :min="0" />
             </div>
@@ -193,13 +204,13 @@ const close = () => emit('update:visible', false);
 
             <div class="flex items-center gap-2">
                 <ToggleSwitch v-model="form.is_active" input-id="active" />
-                <label for="active" class="text-sm font-medium">Producto activo</label>
+                <label for="active" class="text-sm font-medium">Activo</label>
             </div>
         </div>
 
         <template #footer>
             <Button label="Cancelar" text @click="close" />
-            <Button :label="isEdit ? 'Guardar cambios' : 'Crear producto'" icon="pi pi-check" :loading="saving" @click="submit" />
+            <Button :label="isEdit ? 'Guardar cambios' : `Crear ${noun}`" icon="pi pi-check" :loading="saving" @click="submit" />
         </template>
     </Dialog>
 </template>

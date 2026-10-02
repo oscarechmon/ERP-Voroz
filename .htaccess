@@ -1,0 +1,23 @@
+# Carpeta de la app en Hostinger: public_html/sistema, raíz del subdominio
+# sistema.sinexcusas.org.pe.
+#
+# Reenvía cada petición a public/ sin cambiar la URL que ve el visitante, y de
+# paso deja fuera de alcance el .env, storage/ y el código: cualquier ruta
+# termina dentro de public/, donde esos archivos no están.
+#
+# Este archivo tiene que viajar con el despliegue. Si se pierde, el subdominio
+# deja de servir la app y, peor, deja a la vista el .env.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # La carpeta cuelga de public_html, así que también se llega a ella por
+    # sinexcusas.org.pe/sistema. Se manda al subdominio: una sola URL, una sola
+    # cookie de sesión.
+    RewriteCond %{HTTP_HOST} ^(www\.)?sinexcusas\.org\.pe$ [NC]
+    RewriteRule ^(.*)$ https://sistema.sinexcusas.org.pe/$1 [R=301,L]
+
+    RewriteRule ^(?!public/)(.*)$ public/$1 [L]
+</IfModule>
+
+# Sin listados de carpetas, por si mod_rewrite estuviera desactivado.
+Options -Indexes

@@ -72,6 +72,7 @@ class DashboardService
         return Product::query()
             ->leftJoin('stocks', 'stocks.product_id', '=', 'products.id')
             ->where('products.is_active', true)
+            ->where('products.track_stock', true) // Los servicios no tienen stock que mostrar.
             ->whereNull('products.deleted_at')
             ->groupBy('products.id', 'products.name', 'products.stock_min', 'products.image_path')
             ->orderBy('products.name')

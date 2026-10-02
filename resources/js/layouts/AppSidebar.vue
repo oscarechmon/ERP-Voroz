@@ -46,7 +46,7 @@ const collapsed = computed(() => ui.sidebarCollapsed);
             <div class="grid h-9 w-9 place-items-center rounded-xl bg-brand-500 text-white shadow-sm">
                 <i class="pi pi-bolt text-lg"></i>
             </div>
-            <span v-if="!collapsed" class="text-lg font-bold tracking-tight">Voroz<span class="text-brand-500">ERP</span></span>
+            <span v-if="!collapsed" class="text-lg font-bold tracking-tight">Sistema<span class="text-brand-500">ERP</span></span>
         </div>
 
         <!-- Navegación -->

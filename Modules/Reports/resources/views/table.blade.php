@@ -19,7 +19,7 @@
 <body>
     <div class="header">
         <h1>{{ $title }}</h1>
-        <div class="muted">Voroz ERP · Generado el {{ $generatedAt }}</div>
+        <div class="muted">{{ config('app.name') }} · Generado el {{ $generatedAt }}</div>
     </div>
 
     <table>

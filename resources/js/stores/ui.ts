@@ -6,7 +6,7 @@ interface UiState {
     sidebarMobileOpen: boolean;
 }
 
-const STORAGE_KEY = 'voroz.ui';
+const STORAGE_KEY = 'sistema.ui';
 
 /** Persiste las preferencias de interfaz (tema y sidebar) en localStorage. */
 function loadState(): Partial<UiState> {

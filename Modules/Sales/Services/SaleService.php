@@ -55,12 +55,29 @@ class SaleService
             $warehouseId = (int) ($data['warehouse_id'] ?? 0);
 
             // 1) Construye las líneas a partir de los productos reales (precio/costo del sistema).
-            $productIds = array_column($items, 'product_id');
+            $productIds = array_filter(array_column($items, 'product_id'));
             $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
 
             $lines = [];
             $itemsTotal = 0.0; // Suma de líneas (con IGV incluido si aplica)
             foreach ($items as $row) {
+                // Línea sin producto (el delivery de un pedido web): solo concepto y precio.
+                if (empty($row['product_id'])) {
+                    $lineTotal = round((float) $row['price'] * (float) $row['quantity'], 2);
+                    $lines[] = [
+                        'product' => null,
+                        'description' => $row['description'],
+                        'quantity' => (float) $row['quantity'],
+                        'price' => (float) $row['price'],
+                        'cost' => 0.0,
+                        'discount' => 0.0,
+                        'subtotal' => $lineTotal,
+                    ];
+                    $itemsTotal += $lineTotal;
+
+                    continue;
+                }
+
                 $product = $products->get($row['product_id']);
                 if (! $product) {
                     throw new BusinessException("Producto {$row['product_id']} no encontrado.");
@@ -138,7 +155,7 @@ class SaleService
                 [$lineBase, $lineTax] = $this->splitTax($line['subtotal'], $taxPercent, $pricesIncludeIgv);
 
                 $sale->items()->create([
-                    'product_id' => $line['product']->id,
+                    'product_id' => $line['product']?->id,
                     'description' => $line['description'],
                     'quantity' => $line['quantity'],
                     'price' => $line['price'],
@@ -148,7 +165,7 @@ class SaleService
                     'subtotal' => $line['subtotal'],
                 ]);
 
-                if (! $isQuotation && $warehouseId && $line['product']->track_stock) {
+                if (! $isQuotation && $warehouseId && $line['product']?->track_stock) {
                     $this->stock->exit(
                         $line['product']->id,
                         $warehouseId,

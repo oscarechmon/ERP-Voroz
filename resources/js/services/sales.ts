@@ -1,4 +1,4 @@
-import http from '@/lib/http';
+import http, { apiUrl } from '@/lib/http';
 import type { Paginated, TableQuery } from '@/types';
 
 export interface SaleItemInput {
@@ -27,6 +27,9 @@ export interface SalePayload {
 export interface Sale {
     id: number;
     doc_type: string;
+    /** pos = vendido en el POS; web = pedido pagado en la tienda online. */
+    channel: 'pos' | 'web';
+    external_reference: string | null;
     full_number: string;
     subtotal: number;
     tax: number;
@@ -80,6 +83,6 @@ export const salesApi = {
     },
     /** URL del ticket PDF (se abre en nueva pestaña). */
     ticketUrl(id: number): string {
-        return `/api/v1/sales/${id}/ticket`;
+        return apiUrl(`/sales/${id}/ticket`);
     },
 };

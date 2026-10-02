@@ -31,4 +31,15 @@ class ProductFactory extends Factory
             'is_active' => $this->faker->boolean(92),
         ];
     }
+
+    /** Servicio (sin stock). */
+    public function service(): static
+    {
+        return $this->state(fn () => [
+            'type' => Product::TYPE_SERVICE,
+            'track_stock' => false,
+            'stock_min' => 0,
+            'stock_max' => null,
+        ]);
+    }
 }

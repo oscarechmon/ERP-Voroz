@@ -1,9 +1,18 @@
-import http from '@/lib/http';
+import http, { apiUrl } from '@/lib/http';
 import type { Paginated, TableQuery } from '@/types';
 
 /** Tipos del dominio Catálogo. */
+export type ProductType = 'product' | 'service';
+
+/** Producto con stock o servicio (sin stock); los servicios también llegan de la web. */
+export const PRODUCT_TYPES: { label: string; value: ProductType }[] = [
+    { label: 'Producto', value: 'product' },
+    { label: 'Servicio', value: 'service' },
+];
+
 export interface Product {
     id: number;
+    type: ProductType;
     code: string;
     barcode: string | null;
     sku: string | null;
@@ -21,6 +30,7 @@ export interface Product {
     wholesale_price: number | null;
     offer_price: number | null;
     profit_margin: number;
+    current_stock: number;
     stock_min: number;
     stock_max: number | null;
     track_stock: boolean;
@@ -116,7 +126,7 @@ export const productsApi = {
         Object.entries(params).forEach(([k, v]) => {
             if (v !== null && v !== undefined && v !== '') qs.append(k, String(v));
         });
-        return `/api/v1/products/export?${qs.toString()}`;
+        return apiUrl(`/products/export?${qs.toString()}`);
     },
 };
 

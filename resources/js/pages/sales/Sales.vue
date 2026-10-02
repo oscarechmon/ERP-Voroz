@@ -107,6 +107,7 @@ onMounted(load);
                     <template #body="{ data }">
                         <span class="font-semibold">{{ data.full_number }}</span>
                         <Tag class="ml-2" :value="data.doc_type" :severity="docSeverity[data.doc_type] ?? 'secondary'" />
+                        <Tag v-if="data.channel === 'web'" class="ml-1" value="Web" severity="info" v-tooltip.top="`Pedido ${data.external_reference} de la tienda online`" />
                     </template>
                 </Column>
                 <Column header="Fecha" field="sold_at" sortable>
@@ -116,7 +117,7 @@ onMounted(load);
                     <template #body="{ data }">{{ data.customer?.name ?? 'Público general' }}</template>
                 </Column>
                 <Column header="Vendedor">
-                    <template #body="{ data }">{{ data.user ?? '—' }}</template>
+                    <template #body="{ data }">{{ data.user ?? (data.channel === 'web' ? 'Tienda web' : '—') }}</template>
                 </Column>
                 <Column header="Total" field="total" sortable>
                     <template #body="{ data }"><span class="font-semibold">{{ money(data.total) }}</span></template>

@@ -33,7 +33,7 @@ export const menu: MenuItem[] = [
         label: 'Inventario',
         icon: 'pi pi-box',
         children: [
-            { label: 'Productos', icon: 'pi pi-tag', to: '/products', permission: 'products.view' },
+            { label: 'Productos y servicios', icon: 'pi pi-tag', to: '/products', permission: 'products.view' },
             { label: 'Categorías', icon: 'pi pi-sitemap', to: '/categories', permission: 'categories.view' },
             { label: 'Marcas', icon: 'pi pi-bookmark', to: '/brands', permission: 'brands.view' },
             { label: 'Stock', icon: 'pi pi-database', to: '/stock', permission: 'stock.view' },

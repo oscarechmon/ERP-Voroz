@@ -1,4 +1,4 @@
-import http from '@/lib/http';
+import http, { apiUrl } from '@/lib/http';
 
 export interface ReportData {
     title: string;
@@ -26,6 +26,6 @@ export const reportsApi = {
         const qs = new URLSearchParams({ export: format });
         if (from) qs.append('from', from);
         if (to) qs.append('to', to);
-        return `/api/v1/reports/${type}?${qs.toString()}`;
+        return apiUrl(`/reports/${type}?${qs.toString()}`);
     },
 };

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { basePath } from '@/lib/basePath';
 
 /**
  * Rutas de la SPA. Cada ruta protegida declara `meta.requiresAuth` y opcionalmente
@@ -40,7 +41,7 @@ const routes: RouteRecordRaw[] = [
                 path: 'products',
                 name: 'products',
                 component: () => import('@/pages/catalog/Products.vue'),
-                meta: { title: 'Productos', permission: 'products.view' },
+                meta: { title: 'Productos y servicios', permission: 'products.view' },
             },
             {
                 path: 'categories',
@@ -161,7 +162,7 @@ const routes: RouteRecordRaw[] = [
 ];
 
 const router = createRouter({
-    history: createWebHistory(),
+    history: createWebHistory(basePath),
     routes,
     scrollBehavior: () => ({ top: 0 }),
 });

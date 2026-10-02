@@ -27,6 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
+
+        // La llama GitHub Actions, que no tiene sesión: se valida con DEPLOY_TOKEN.
+        $middleware->validateCsrfTokens(except: ['deploy/release']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Las excepciones de negocio se renderizan solas (método render()).

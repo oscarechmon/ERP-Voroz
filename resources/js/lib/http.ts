@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance } from 'axios';
+import { basePath } from './basePath';
 
 /**
  * Instancia central de Axios para consumir la API.
@@ -8,7 +9,7 @@ import axios, { type AxiosInstance } from 'axios';
  * - Interceptor de respuesta: normaliza errores y expulsa al login ante un 401.
  */
 const http: AxiosInstance = axios.create({
-    baseURL: '/api/v1',
+    baseURL: `${basePath}/api/v1`,
     withCredentials: true,
     withXSRFToken: true,
     headers: {
@@ -17,9 +18,12 @@ const http: AxiosInstance = axios.create({
     },
 });
 
+/** URL completa de un endpoint de la API, para abrirla en otra pestaña (PDF, Excel). */
+export const apiUrl = (path: string): string => `${basePath}/api/v1${path}`;
+
 /** Obtiene la cookie CSRF de Sanctum antes de operaciones que mutan estado/login. */
 export async function ensureCsrf(): Promise<void> {
-    await axios.get('/sanctum/csrf-cookie', { withCredentials: true });
+    await axios.get(`${basePath}/sanctum/csrf-cookie`, { withCredentials: true });
 }
 
 // Manejo global de errores de autenticación/sesión.
@@ -27,10 +31,12 @@ http.interceptors.response.use(
     (response) => response,
     (error) => {
         const status = error?.response?.status;
-        if (status === 401 && !window.location.pathname.startsWith('/login')) {
+        // Ruta dentro de la app, sin el prefijo: es lo que entiende el router.
+        const path = window.location.pathname.slice(basePath.length) || '/';
+        if (status === 401 && !path.startsWith('/login')) {
             // Sesión expirada: redirige al login preservando destino.
-            const redirect = encodeURIComponent(window.location.pathname);
-            window.location.assign(`/login?redirect=${redirect}`);
+            const redirect = encodeURIComponent(path);
+            window.location.assign(`${basePath}/login?redirect=${redirect}`);
         }
         return Promise.reject(error);
     },

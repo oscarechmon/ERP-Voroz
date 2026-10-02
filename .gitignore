@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Paquete de despliegue (ver DEPLOY.md)
+/release.zip
+/.release-tmp

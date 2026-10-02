@@ -14,8 +14,8 @@ const router = useRouter();
 const route = useRoute();
 const toast = useToast();
 
-const email = ref('admin@voroz.test');
-const password = ref('password');
+const email = ref('');
+const password = ref('');
 const remember = ref(true);
 const loading = ref(false);
 
@@ -49,7 +49,7 @@ async function submit(): Promise<void> {
                     <div class="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur">
                         <i class="pi pi-bolt text-2xl"></i>
                     </div>
-                    <span class="text-2xl font-bold">Voroz ERP</span>
+                    <span class="text-2xl font-bold">Sistema ERP</span>
                 </div>
                 <div>
                     <h1 class="text-4xl font-bold leading-tight">Gestiona tu negocio<br />sin fricción.</h1>
@@ -57,7 +57,7 @@ async function submit(): Promise<void> {
                         Ventas, inventario, compras, caja y reportes en un solo lugar. Rápido, moderno y listo para crecer contigo.
                     </p>
                 </div>
-                <p class="text-sm text-white/60">© {{ new Date().getFullYear() }} Voroz · Sistema de ventas</p>
+                <p class="text-sm text-white/60">© {{ new Date().getFullYear() }} · Sistema de ventas</p>
             </div>
         </div>
 

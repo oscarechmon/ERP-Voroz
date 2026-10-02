@@ -10,9 +10,10 @@ import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import Tag from 'primevue/tag';
 import Skeleton from 'primevue/skeleton';
+import Select from 'primevue/select';
 import ProductFormDialog from '@/components/catalog/ProductFormDialog.vue';
 import LabelPrintDialog from '@/components/catalog/LabelPrintDialog.vue';
-import { productsApi, type Product } from '@/services/catalog';
+import { productsApi, PRODUCT_TYPES, type Product, type ProductType } from '@/services/catalog';
 import { useAuthStore } from '@/stores/auth';
 
 const toast = useToast();
@@ -28,6 +29,7 @@ const params = reactive({
     page: 1,
     per_page: 10,
     search: '',
+    type: null as ProductType | null,
     sort_by: 'created_at',
     sort_dir: 'desc' as 'asc' | 'desc',
 });
@@ -143,8 +145,8 @@ onMounted(load);
     <div class="space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-bold tracking-tight">Productos</h1>
-                <p class="text-sm text-slate-500">{{ total }} productos en el catálogo</p>
+                <h1 class="text-2xl font-bold tracking-tight">Productos y servicios</h1>
+                <p class="text-sm text-slate-500">{{ total }} ítems en el catálogo</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <Button
@@ -181,7 +183,7 @@ onMounted(load);
                 />
                 <Button
                     v-if="auth.can('products.create')"
-                    label="Nuevo producto"
+                    label="Nuevo"
                     icon="pi pi-plus"
                     @click="openCreate"
                 />
@@ -194,6 +196,16 @@ onMounted(load);
                     <InputIcon class="pi pi-search" />
                     <InputText v-model="params.search" placeholder="Buscar por nombre, código o barras…" class="w-80" @input="onSearch" />
                 </IconField>
+                <Select
+                    v-model="params.type"
+                    :options="PRODUCT_TYPES"
+                    option-label="label"
+                    option-value="value"
+                    show-clear
+                    placeholder="Productos y servicios"
+                    class="w-52"
+                    @change="params.page = 1; load()"
+                />
             </div>
 
             <DataTable
@@ -229,10 +241,13 @@ onMounted(load);
                         <div class="flex items-center gap-3">
                             <span class="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5">
                                 <img v-if="data.image_url" :src="data.image_url" class="h-full w-full object-cover" alt="" />
-                                <i v-else class="pi pi-box text-slate-400"></i>
+                                <i v-else :class="['pi text-slate-400', data.type === 'service' ? 'pi-sparkles' : 'pi-box']"></i>
                             </span>
                             <div>
-                                <p class="font-medium">{{ data.name }}</p>
+                                <p class="font-medium">
+                                    {{ data.name }}
+                                    <Tag v-if="data.type === 'service'" value="Servicio" severity="info" class="ml-1" />
+                                </p>
                                 <p class="text-xs text-slate-400">{{ data.code }} · {{ data.barcode }}</p>
                             </div>
                         </div>

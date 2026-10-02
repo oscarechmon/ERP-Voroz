@@ -1,4 +1,4 @@
-# VOROZ ERP — Arquitectura del Sistema
+# SISTEMA ERP — Arquitectura del Sistema
 
 Sistema de ventas / ERP modular, multiempresa-ready, para el mercado peruano
 (DNI/RUC, IGV, Yape/Plin, comprobantes internos boleta/factura en PDF).

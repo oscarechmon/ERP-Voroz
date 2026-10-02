@@ -1,7 +1,18 @@
 <?php
 
+use App\Http\Controllers\ReleaseController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Publicación desde GitHub Actions (ver DEPLOY.md)
+|--------------------------------------------------------------------------
+| Descomprime el release.zip subido por FTP, migra y cachea. Se valida con
+| el token de DEPLOY_TOKEN, no con sesión ni CSRF. Va por tandas, de ahí el
+| límite alto.
+*/
+Route::post('deploy/release', ReleaseController::class)->middleware('throttle:120,10')->name('deploy.release');
 
 /*
 |--------------------------------------------------------------------------
@@ -36,7 +47,7 @@ Route::get('deploy/{token}', function (string $token) {
             'session_same_site' => config('session.same_site'),
             'sanctum_stateful' => config('sanctum.stateful'),
             'users_count' => \App\Models\User::count(),
-            'admin_exists' => \App\Models\User::where('email', 'admin@voroz.test')->exists(),
+            'admin_exists' => \App\Models\User::where('email', 'admin@sistema.test')->exists(),
         ]);
     }
 

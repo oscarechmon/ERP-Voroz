@@ -22,12 +22,12 @@ class UserSeeder extends Seeder
         $branch = Branch::where('company_id', $company?->id)->first();
 
         $users = [
-            ['name' => 'Super Administrador', 'email' => 'admin@voroz.test', 'role' => 'Super Administrador'],
-            ['name' => 'Ana Administradora', 'email' => 'admin2@voroz.test', 'role' => 'Administrador'],
-            ['name' => 'Sergio Supervisor', 'email' => 'supervisor@voroz.test', 'role' => 'Supervisor'],
-            ['name' => 'Vanesa Ventas', 'email' => 'ventas@voroz.test', 'role' => 'Ventas'],
-            ['name' => 'Luis Logística', 'email' => 'logistica@voroz.test', 'role' => 'Logística'],
-            ['name' => 'Carla Caja', 'email' => 'caja@voroz.test', 'role' => 'Caja'],
+            ['name' => 'Super Administrador', 'email' => 'admin@sistema.test', 'role' => 'Super Administrador'],
+            ['name' => 'Ana Administradora', 'email' => 'admin2@sistema.test', 'role' => 'Administrador'],
+            ['name' => 'Sergio Supervisor', 'email' => 'supervisor@sistema.test', 'role' => 'Supervisor'],
+            ['name' => 'Vanesa Ventas', 'email' => 'ventas@sistema.test', 'role' => 'Ventas'],
+            ['name' => 'Luis Logística', 'email' => 'logistica@sistema.test', 'role' => 'Logística'],
+            ['name' => 'Carla Caja', 'email' => 'caja@sistema.test', 'role' => 'Caja'],
         ];
 
         foreach ($users as $data) {

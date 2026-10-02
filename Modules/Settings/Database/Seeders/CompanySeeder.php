@@ -17,11 +17,11 @@ class CompanySeeder extends Seeder
         $company = Company::firstOrCreate(
             ['ruc' => '20123456789'],
             [
-                'business_name' => 'Voroz Comercial S.A.C.',
-                'trade_name' => 'Voroz Store',
+                'business_name' => 'Sistema Comercial S.A.C.',
+                'trade_name' => 'Sistema Store',
                 'address' => 'Av. Principal 123, Lima, Perú',
                 'phone' => '(01) 555-1234',
-                'email' => 'ventas@voroz.test',
+                'email' => 'ventas@sistema.test',
                 'currency' => 'PEN',
                 'currency_symbol' => 'S/',
                 'igv_percent' => 18.00,

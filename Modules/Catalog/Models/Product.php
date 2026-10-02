@@ -28,8 +28,16 @@ class Product extends Model implements Auditable
     use SoftDeletes;
     use AuditableTrait;
 
+    /** Bien físico: lleva stock por almacén. */
+    public const TYPE_PRODUCT = 'product';
+
+    /** Servicio (facial, corporal…): se vende pero no lleva stock. */
+    public const TYPE_SERVICE = 'service';
+
+    public const TYPES = [self::TYPE_PRODUCT, self::TYPE_SERVICE];
+
     protected $fillable = [
-        'company_id', 'category_id', 'brand_id', 'unit_id',
+        'company_id', 'category_id', 'brand_id', 'unit_id', 'type',
         'code', 'barcode', 'sku', 'name', 'description', 'image_path', 'qr_path',
         'cost', 'price', 'wholesale_price', 'offer_price',
         'stock_min', 'stock_max', 'track_stock', 'has_expiry', 'is_active',
@@ -48,6 +56,25 @@ class Product extends Model implements Auditable
     ];
 
     protected $appends = ['image_url', 'profit_margin', 'current_stock'];
+
+    protected $attributes = [
+        'type' => self::TYPE_PRODUCT,
+    ];
+
+    /** Un servicio nunca controla stock, venga de donde venga el cambio. */
+    protected static function booted(): void
+    {
+        static::saving(function (Product $product): void {
+            if ($product->isService()) {
+                $product->track_stock = false;
+            }
+        });
+    }
+
+    public function isService(): bool
+    {
+        return $this->type === self::TYPE_SERVICE;
+    }
 
     // --- Relaciones -------------------------------------------------------
 

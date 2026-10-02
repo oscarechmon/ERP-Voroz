@@ -20,9 +20,15 @@ class Sale extends Model implements Auditable
     use AuditableTrait;
     use SoftDeletes;
 
+    /** Venta hecha en el POS del sistema. */
+    public const CHANNEL_POS = 'pos';
+
+    /** Pedido pagado en la tienda online de la web (llega por la integración). */
+    public const CHANNEL_WEB = 'web';
+
     protected $fillable = [
         'company_id', 'branch_id', 'warehouse_id', 'customer_id', 'user_id',
-        'doc_type', 'series', 'number', 'full_number',
+        'doc_type', 'channel', 'external_reference', 'series', 'number', 'full_number',
         'subtotal', 'tax', 'discount', 'total', 'tax_percent', 'paid', 'change',
         'status', 'payment_status', 'notes', 'sold_at',
         'cancelled_at', 'cancelled_by', 'cancel_reason',

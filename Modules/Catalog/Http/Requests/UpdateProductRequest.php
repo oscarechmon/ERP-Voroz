@@ -6,6 +6,7 @@ namespace Modules\Catalog\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Modules\Catalog\Models\Product;
 
 /** Validación para actualizar un producto (código único ignorando el actual). */
 class UpdateProductRequest extends FormRequest
@@ -23,6 +24,7 @@ class UpdateProductRequest extends FormRequest
             'code' => ['sometimes', 'string', 'max:50', Rule::unique('products', 'code')->ignore($id)],
             'barcode' => ['nullable', 'string', 'max:50'],
             'sku' => ['nullable', 'string', 'max:50'],
+            'type' => ['sometimes', Rule::in(Product::TYPES)],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'category_id' => ['nullable', 'exists:categories,id'],

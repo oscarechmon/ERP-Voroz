@@ -292,6 +292,22 @@ class WebMigrationTest extends TestCase
         $this->assertSame(1, Package::count());
     }
 
+    public function test_un_cliente_ya_enlazado_desde_la_tienda_recibe_su_ficha_completa(): void
+    {
+        $id = $this->api('POST', 'customers', ['web_id' => 3, 'name' => 'Oscar Echegaray', 'document_number' => '72164814'])->json('data.id');
+
+        $this->import('customers', [['id' => 3, 'full_name' => 'Oscar Echegaray', 'document_number' => '72164814',
+            'district' => 'Miraflores', 'allergies' => 'Látex', 'birth_date' => '1990-05-01']])
+            ->assertJsonPath('data.existing', 1)
+            ->assertJsonPath('data.links.3', $id);
+
+        $customer = Customer::findOrFail($id);
+        $this->assertSame(1, Customer::count());
+        $this->assertSame('Miraflores', $customer->district);
+        $this->assertSame('Látex', $customer->allergies);
+        $this->assertSame('1990-05-01', $customer->birth_date->toDateString());
+    }
+
     public function test_importar_algo_cuyo_cliente_no_llego_falla_sin_dejar_nada_a_medias(): void
     {
         $facial = Product::factory()->service()->create();

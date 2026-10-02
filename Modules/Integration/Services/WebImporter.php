@@ -73,6 +73,12 @@ class WebImporter
             DB::transaction(function () use ($kind, $type, $record, $webId, &$result): void {
                 $existing = $this->links->id($type, $webId);
 
+                // Un cliente pudo enlazarse antes desde la tienda (solo nombre,
+                // documento y contacto): se completa igual con su ficha entera.
+                if ($existing !== null && $kind === 'customers') {
+                    $this->customers->resolve($this->customerData($record), update: true);
+                }
+
                 if ($existing !== null) {
                     $result['existing']++;
                     $result['links'][$webId] = $this->publicId($type, $existing);

@@ -84,6 +84,8 @@ despliegue hay que sembrarlo a mano:
    borra la página por defecto de Hostinger (`default.php` o `index.php`),
    selecciona `release.zip` y usa **Extraer** (en esa misma carpeta).
 4. Crea el `.env` en `public_html/sistema` a partir de `.env.example` (ver abajo).
+   El `.env.example` no viaja en el zip (`.deployignore` excluye `/.env.*`):
+   cópialo del repositorio o escribe el `.env` directamente.
 5. hPanel → **Avanzado → Terminal SSH**:
 
    ```bash

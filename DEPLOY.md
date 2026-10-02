@@ -107,12 +107,28 @@ despliegue hay que sembrarlo a mano:
 6. Borra el `release.zip` que quedó y vuelve a lanzar el workflow: a partir de
    aquí todo es automático.
 
-**Si traes datos de `voroz.noaspamassage.com`**, en vez de los `db:seed`:
-exporta la base vieja desde su phpMyAdmin, impórtala en la nueva, ejecuta
-`php artisan migrate --force` por si faltan migraciones, y copia
-`storage/app/public` (logos e imágenes de productos) de la instalación vieja a
-`public_html/sistema/storage/app/public`. Los usuarios conservan sus correos
-`@voroz.test`; el cambio de nombre solo afecta a las instalaciones nuevas.
+### Clientes y ventas del ERP anterior (voroz)
+
+Con el sistema ya en marcha (catálogo vinculado con la web), se traen desde el
+volcado SQL de la base vieja, exportado con su phpMyAdmin:
+
+1. hPanel → Administrador de archivos: sube el `.sql` a
+   `public_html/sistema/storage/app/private/` (fuera de lo que se publica).
+2. Por SSH, en `public_html/sistema`, primero simula y luego importa:
+
+   ```bash
+   php artisan voroz:importar storage/app/private/u257283941_voroz.sql --simular
+   php artisan voroz:importar storage/app/private/u257283941_voroz.sql
+   ```
+
+3. Borra el `.sql` del servidor: tiene datos personales. **Nunca lo subas al
+   repositorio** (es público).
+
+Los clientes se enlazan con los que ya existen (por DNI o correo) y solo se
+completan sus datos vacíos; los demás se crean. Las ventas entran como fueron
+(fecha, comprobante, anulaciones, pagos) **sin mover stock**, y sus productos se
+enlazan con los de aquí (la lista está en `VorozImporter::PRODUCTS`). La serie
+T001/B001 sigue desde la última venta importada. Se puede repetir sin duplicar.
 
 ### El `.env` del servidor
 

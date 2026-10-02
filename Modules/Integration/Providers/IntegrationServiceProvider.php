@@ -7,6 +7,7 @@ namespace Modules\Integration\Providers;
 use App\Core\Providers\ModuleServiceProvider;
 use Illuminate\Support\Facades\Event;
 use Modules\Catalog\Models\Product;
+use Modules\Integration\Console\VorozImportarCommand;
 use Modules\Integration\Services\CatalogNotifier;
 use Modules\Integration\Services\OrderStatusNotifier;
 use Modules\Integration\Services\WebLinks;
@@ -46,5 +47,9 @@ class IntegrationServiceProvider extends ModuleServiceProvider
 
         // Cada paso del seguimiento de un pedido se avisa a la web (lo ve el cliente).
         Event::listen(OnlineOrderStatusChanged::class, OrderStatusNotifier::class);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([VorozImportarCommand::class]);
+        }
     }
 }

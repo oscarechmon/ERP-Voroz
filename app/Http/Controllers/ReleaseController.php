@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Providers\ModuleServiceProvider;
 use FilesystemIterator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -184,6 +185,16 @@ class ReleaseController extends Controller
      */
     private function finish(): array
     {
+        // Este proceso arrancó con la versión anterior: los módulos que trae la
+        // nueva no están registrados y `migrate` no vería sus migraciones (y
+        // correría las de otros módulos que dependen de ellas). Se registran
+        // aquí, ya con los archivos nuevos en su sitio.
+        foreach ((new ModuleServiceProvider(app()))->discoverModuleProviders() as $provider) {
+            if (! app()->getProvider($provider)) {
+                app()->register($provider);
+            }
+        }
+
         $output = [];
 
         foreach (['optimize:clear' => [], 'migrate' => ['--force' => true], 'optimize' => []] as $command => $options) {

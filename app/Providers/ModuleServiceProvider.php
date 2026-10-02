@@ -28,7 +28,7 @@ class ModuleServiceProvider extends ServiceProvider
      *
      * @return array<int, class-string<ServiceProvider>>
      */
-    protected function discoverModuleProviders(): array
+    public function discoverModuleProviders(): array
     {
         // Normaliza a barras `/` para que el patrón y las rutas devueltas por glob
         // coincidan tanto en Windows como en Linux (glob devuelve barras `/`).

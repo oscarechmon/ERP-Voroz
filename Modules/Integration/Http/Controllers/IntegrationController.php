@@ -9,13 +9,16 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Integration\Http\Requests\ConsumptionRequest;
 use Modules\Integration\Http\Requests\ImportProductRequest;
+use Modules\Catalog\Models\Product;
 use Modules\Integration\Http\Requests\OnlineOrderRequest;
+use Modules\Integration\Http\Requests\WebDetailsRequest;
 use Modules\Integration\Http\Requests\WebSaleRequest;
 use Modules\Integration\Services\CatalogFeed;
 use Modules\Integration\Services\ConsumptionService;
 use Modules\Integration\Services\CustomerResolver;
 use Modules\Integration\Services\OnlineOrderSync;
 use Modules\Integration\Services\ProductImporter;
+use Modules\Integration\Services\WebDetailsService;
 use Modules\Integration\Services\WebImporter;
 use Modules\Integration\Services\WebSaleService;
 use Modules\OnlineOrders\Models\OnlineOrder;
@@ -126,6 +129,28 @@ class IntegrationController extends ApiController
                 'happened_at' => $h->happened_at?->toIso8601String(),
             ])->values(),
         ])->values());
+    }
+
+    /**
+     * Lo que la web mostraba de un ítem (imagen, descripción, si se publicaba,
+     * duración): desde aquí pasa a administrarse en el sistema.
+     */
+    public function storeWebDetails(WebDetailsRequest $request, int $product, WebDetailsService $details): JsonResponse
+    {
+        $model = $details->apply(Product::findOrFail($product), $request->safe()->except('image'), $request->file('image'));
+
+        return $this->ok($this->feed->items([$model->id])[0], "Ficha web de {$model->code} recibida.");
+    }
+
+    /** Descripción de una categoría que la web tenía (solo si aquí no hay una). */
+    public function describeCategory(Request $request, WebDetailsService $details): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['required', 'string', 'max:2000'],
+        ]);
+
+        return $this->ok(['updated' => $details->describeCategory($data['name'], $data['description'])]);
     }
 
     /** Importación del historial de la web, por tipo y por tandas. */

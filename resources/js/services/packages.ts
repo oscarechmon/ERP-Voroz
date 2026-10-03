@@ -11,6 +11,7 @@ export interface Package {
     total_sessions: number;
     validity_days: number | null;
     is_active: boolean;
+    web_published: boolean | null;
     services: { id: number; name: string }[];
 }
 
@@ -21,6 +22,8 @@ export interface PackagePayload {
     total_sessions: number;
     validity_days?: number | null;
     is_active: boolean;
+    /** null en lo que llegó de la web y nadie tocó aquí: no se cambia al guardar. */
+    web_published?: boolean | null;
     service_ids: number[];
 }
 

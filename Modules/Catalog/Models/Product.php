@@ -48,6 +48,8 @@ class Product extends Model implements Auditable
         'code', 'barcode', 'sku', 'name', 'description', 'image_path', 'qr_path',
         'cost', 'price', 'wholesale_price', 'offer_price',
         'stock_min', 'stock_max', 'track_stock', 'has_expiry', 'is_active',
+        // Lo que muestra la web pública (con la imagen y la descripción).
+        'web_published', 'duration_minutes',
     ];
 
     protected $casts = [
@@ -60,6 +62,8 @@ class Product extends Model implements Auditable
         'track_stock' => 'boolean',
         'has_expiry' => 'boolean',
         'is_active' => 'boolean',
+        'web_published' => 'boolean',
+        'duration_minutes' => 'integer',
     ];
 
     protected $appends = ['image_url', 'profit_margin', 'current_stock'];

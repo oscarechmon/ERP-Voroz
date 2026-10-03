@@ -9,9 +9,10 @@ use Modules\Inventory\Models\Stock;
 use Modules\Packages\Models\Package;
 
 /**
- * Lo que la web sabe de cada ítem del catálogo: lo que el sistema administra
- * (nombre, categoría, precio, stock, estado). Imágenes, descripciones y qué se
- * publica los decide la web.
+ * Todo lo que la web muestra de cada ítem del catálogo: nombre, categoría,
+ * precio, stock y estado, y también lo de la web pública (si se publica,
+ * imagen, descripción y, en un servicio, su duración). La web no guarda nada
+ * de esto: lo lee de aquí.
  *
  * Incluye los eliminados (como inactivos) para que la web también los oculte.
  */
@@ -33,7 +34,7 @@ class CatalogFeed
             ->keyBy('product_id');
 
         return Product::withTrashed()
-            ->with(['category:id,name', 'unit:id,name'])
+            ->with(['category:id,name,description', 'unit:id,name'])
             ->when($ids !== null, fn ($q) => $q->whereIn('id', $ids))
             ->addSelect(['web_stock' => Stock::select('quantity')
                 ->whereColumn('stocks.product_id', 'products.id')
@@ -55,6 +56,7 @@ class CatalogFeed
             'name' => $product->name,
             'description' => $product->description,
             'category' => $product->category?->name,
+            'category_description' => $product->category?->description,
             'unit' => $product->unit?->name,
             'price' => (float) $product->price,
             'cost' => (float) $product->cost,
@@ -62,6 +64,11 @@ class CatalogFeed
             'stock' => $product->track_stock ? (float) ($product->web_stock ?? 0) : null,
             'stock_min' => (float) $product->stock_min,
             'active' => $product->is_active && ! $product->trashed(),
+            // Vacío: aún no se decidió aquí (la web sigue con lo que tenía).
+            'web_published' => $product->web_published,
+            // Dirección completa: la web la muestra tal cual, desde aquí.
+            'image_url' => $product->image_url ? url($product->image_url) : null,
+            'duration_minutes' => $product->duration_minutes,
             // Un paquete lleva sus sesiones, vigencia y servicios (ids de aquí).
             'package' => $product->isPackage() && $package ? [
                 'total_sessions' => $package->total_sessions,

@@ -42,6 +42,8 @@ class ProductResource extends JsonResource
             'track_stock' => $this->track_stock,
             'has_expiry' => $this->has_expiry,
             'is_active' => $this->is_active,
+            'web_published' => $this->web_published,
+            'duration_minutes' => $this->duration_minutes,
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

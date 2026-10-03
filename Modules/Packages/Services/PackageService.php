@@ -86,6 +86,7 @@ class PackageService extends BaseService
             'description' => $package->description,
             'price' => $package->price,
             'is_active' => $package->is_active,
+            'web_published' => $package->web_published,
         ]);
 
         if ($product->trashed()) {
@@ -103,6 +104,6 @@ class PackageService extends BaseService
     /** @return array<string, mixed> */
     private function attributes(array $data): array
     {
-        return array_intersect_key($data, array_flip(['name', 'description', 'price', 'total_sessions', 'validity_days', 'is_active']));
+        return array_intersect_key($data, array_flip(['name', 'description', 'price', 'total_sessions', 'validity_days', 'is_active', 'web_published']));
     }
 }

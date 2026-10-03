@@ -65,14 +65,24 @@ class ProductService extends BaseService
         $product = $this->products->update($id, $data);
 
         if ($image instanceof UploadedFile) {
-            if ($product->image_path) {
-                Storage::disk('public')->delete($product->image_path);
-            }
-            $product->image_path = $this->storeImage($image, $product->id);
-            $product->saveQuietly();
+            $this->replaceImage($product, $image);
         }
 
         return $product->fresh();
+    }
+
+    /**
+     * Cambia la imagen del producto (borra la anterior). Se guarda sin pasar
+     * por los eventos, como al crearlo: quien llama decide si avisar.
+     */
+    public function replaceImage(Product $product, UploadedFile $image): void
+    {
+        if ($product->image_path) {
+            Storage::disk('public')->delete($product->image_path);
+        }
+
+        $product->image_path = $this->storeImage($image, $product->id);
+        $product->saveQuietly();
     }
 
     public function delete(int|string $id): bool

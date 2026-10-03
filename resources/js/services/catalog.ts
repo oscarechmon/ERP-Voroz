@@ -36,6 +36,10 @@ export interface Product {
     track_stock: boolean;
     has_expiry: boolean;
     is_active: boolean;
+    /** Si se muestra en la web pública; null = aún no se decidió aquí. */
+    web_published: boolean | null;
+    /** Duración de un servicio, para la web. */
+    duration_minutes: number | null;
     created_at: string | null;
 }
 

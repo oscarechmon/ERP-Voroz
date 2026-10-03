@@ -22,6 +22,7 @@ class PackageResource extends JsonResource
             'total_sessions' => $this->total_sessions,
             'validity_days' => $this->validity_days,
             'is_active' => $this->is_active,
+            'web_published' => $this->web_published,
             'services' => $this->whenLoaded('services', fn () => $this->services->map(fn ($s) => [
                 'id' => $s->id,
                 'name' => $s->name,

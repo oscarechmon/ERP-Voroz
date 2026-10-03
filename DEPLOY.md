@@ -174,13 +174,18 @@ El sistema es **el único lugar donde se opera el centro**:
 - **Clientes** con su ficha completa (datos personales y antecedentes).
 - Catálogo y stock: productos, insumos, servicios (con los insumos que usa cada
   uno) y paquetes; compras, ajustes, kardex.
+- **Lo que muestra la web:** en cada producto, servicio o paquete, la foto, la
+  descripción, **Publicar en la web** y, en un servicio, su duración. La web es
+  un cascarón: lee todo eso de aquí por la API y muestra la foto desde aquí
+  (por eso este sistema necesita `storage:link` y un `APP_URL` correcto).
 
-La web conserva lo suyo: contenido, datos del sitio, imágenes, descripciones,
-qué se publica y la tienda (carrito, cobro con Izipay, "Mis pedidos").
+La web conserva solo su contenido (textos y fotos de sus páginas), los datos
+del sitio y la tienda (carrito, cobro con Izipay, "Mis pedidos").
 
 | Qué pasa | Cómo viaja |
 |---|---|
-| Cambias un producto, servicio, paquete o su stock aquí | El sistema avisa a la web al instante (`POST /erp/catalogo`) |
+| Cambias un producto, servicio, paquete, su stock, su foto o si se publica | El sistema avisa a la web al instante (`POST /erp/catalogo`) y la web lo vuelve a leer |
+| Pasas lo que la web tenía (una vez, `php artisan erp:fichas` en la web) | La web manda aquí fotos, descripciones y lo publicado (`POST /integration/products/{id}/web`) |
 | Alguien crea una cuenta en la tienda | La web lo enlaza con su ficha de aquí (la crea si no existe) |
 | Se crea o se cobra un pedido en la tienda | La web lo manda aquí (`POST /integration/orders`); cobrado, se registra como **venta del canal web** y descuenta stock |
 | Mueves un pedido online (preparar, enviar, entregar, anular) | Se avisa a la web (`POST /erp/pedidos/{código}/estado`) y el cliente lo ve; anular un pedido cobrado anula su venta y devuelve el stock |

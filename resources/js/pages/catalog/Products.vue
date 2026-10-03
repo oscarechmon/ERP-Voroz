@@ -259,6 +259,7 @@ onMounted(load);
                                     {{ data.name }}
                                     <Tag v-if="data.type === 'service'" value="Servicio" severity="info" class="ml-1" />
                                     <Tag v-if="data.type === 'package'" value="Paquete" severity="contrast" class="ml-1" />
+                                    <Tag v-if="data.web_published" value="En la web" severity="success" icon="pi pi-globe" class="ml-1" />
                                 </p>
                                 <p class="text-xs text-slate-400">{{ data.code }} · {{ data.barcode }}</p>
                             </div>

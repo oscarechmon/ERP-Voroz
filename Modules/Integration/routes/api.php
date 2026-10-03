@@ -16,6 +16,8 @@ Route::middleware([VerifyIntegrationToken::class, 'throttle:240,1'])
     ->group(function (): void {
         Route::get('catalog', 'catalog');
         Route::post('products', 'storeProduct');
+        Route::post('products/{product}/web', 'storeWebDetails')->whereNumber('product');
+        Route::post('categories/describe', 'describeCategory');
         Route::post('sales', 'storeSale');
         Route::post('sales/{reference}/cancel', 'cancelSale');
         Route::post('consumptions', 'storeConsumption');

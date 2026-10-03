@@ -6,6 +6,7 @@ namespace Modules\Integration\Providers;
 
 use App\Core\Providers\ModuleServiceProvider;
 use Illuminate\Support\Facades\Event;
+use Modules\Catalog\Models\Category;
 use Modules\Catalog\Models\Product;
 use Modules\Integration\Console\VorozImportarCommand;
 use Modules\Integration\Services\CatalogNotifier;
@@ -44,6 +45,8 @@ class IntegrationServiceProvider extends ModuleServiceProvider
         Product::deleted(fn (Product $product) => $notify($product->id));
         Product::restored(fn (Product $product) => $notify($product->id));
         Stock::saved(fn (Stock $stock) => $notify((int) $stock->product_id));
+        // La web agrupa por categoría y muestra su descripción.
+        Category::saved(fn (Category $category) => Product::where('category_id', $category->id)->pluck('id')->each(fn ($id) => $notify((int) $id)));
 
         // Cada paso del seguimiento de un pedido se avisa a la web (lo ve el cliente).
         Event::listen(OnlineOrderStatusChanged::class, OrderStatusNotifier::class);

@@ -20,13 +20,14 @@ class Package extends Model implements Auditable
     use AuditableTrait;
     use SoftDeletes;
 
-    protected $fillable = ['product_id', 'name', 'description', 'price', 'total_sessions', 'validity_days', 'is_active'];
+    protected $fillable = ['product_id', 'name', 'description', 'price', 'total_sessions', 'validity_days', 'is_active', 'web_published'];
 
     protected $casts = [
         'price' => 'decimal:2',
         'total_sessions' => 'integer',
         'validity_days' => 'integer',
         'is_active' => 'boolean',
+        'web_published' => 'boolean',
     ];
 
     /** Lo que vende el POS. */

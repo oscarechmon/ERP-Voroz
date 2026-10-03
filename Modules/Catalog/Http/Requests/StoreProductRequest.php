@@ -37,6 +37,8 @@ class StoreProductRequest extends FormRequest
             'track_stock' => ['boolean'],
             'has_expiry' => ['boolean'],
             'is_active' => ['boolean'],
+            'web_published' => ['nullable', 'boolean'],
+            'duration_minutes' => ['nullable', 'integer', 'min:5', 'max:600'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ];
     }
@@ -44,6 +46,8 @@ class StoreProductRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'duration_minutes.min' => 'La duración debe ser de al menos 5 minutos.',
+            'duration_minutes.max' => 'La duración no puede pasar de 600 minutos.',
             'type.in' => 'El tipo debe ser producto o servicio.',
             'name.required' => 'El nombre del producto es obligatorio.',
             'code.unique' => 'Ya existe un producto con este código interno.',

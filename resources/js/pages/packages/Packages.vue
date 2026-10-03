@@ -60,7 +60,7 @@ const dialog = ref(false);
 const saving = ref(false);
 const errors = ref<Record<string, string[]>>({});
 const editingId = ref<number | null>(null);
-const blank = (): PackagePayload => ({ name: '', description: '', price: 0, total_sessions: 4, validity_days: null, is_active: true, service_ids: [] });
+const blank = (): PackagePayload => ({ name: '', description: '', price: 0, total_sessions: 4, validity_days: null, is_active: true, web_published: false, service_ids: [] });
 const form = ref<PackagePayload>(blank());
 
 async function loadServices(): Promise<void> {
@@ -81,7 +81,7 @@ async function openEdit(p: Package): Promise<void> {
     errors.value = {};
     form.value = {
         name: p.name, description: p.description ?? '', price: p.price, total_sessions: p.total_sessions,
-        validity_days: p.validity_days, is_active: p.is_active, service_ids: p.services.map((s) => s.id),
+        validity_days: p.validity_days, is_active: p.is_active, web_published: p.web_published, service_ids: p.services.map((s) => s.id),
     };
     dialog.value = true;
 }
@@ -295,10 +295,18 @@ onMounted(load);
                     <ToggleSwitch v-model="form.is_active" input-id="pkg-active" />
                     <label for="pkg-active" class="text-sm font-medium">Se vende</label>
                 </div>
+                <div class="flex items-center gap-2">
+                    <ToggleSwitch
+                        :model-value="form.web_published ?? false"
+                        input-id="pkg-web"
+                        @update:model-value="(value: boolean) => (form.web_published = value)"
+                    />
+                    <label for="pkg-web" class="text-sm font-medium">Publicar en la web</label>
+                </div>
                 <div class="md:col-span-2">
                     <label class="mb-1 block text-sm font-medium">Descripción</label>
                     <Textarea v-model="form.description" rows="2" auto-resize class="w-full" />
-                    <p class="mt-1 text-xs text-slate-400">La imagen y si se publica en la web se deciden en el panel de la web.</p>
+                    <p class="mt-1 text-xs text-slate-400">Es la que se muestra en la web.</p>
                 </div>
             </div>
             <template #footer>

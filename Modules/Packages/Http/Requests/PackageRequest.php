@@ -24,6 +24,7 @@ class PackageRequest extends FormRequest
             'total_sessions' => ['required', 'integer', 'min:1', 'max:1000'],
             'validity_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
             'is_active' => ['boolean'],
+            'web_published' => ['nullable', 'boolean'],
             'service_ids' => ['required', 'array', 'min:1'],
             'service_ids.*' => ['integer', Rule::exists('products', 'id')->where('type', Product::TYPE_SERVICE)],
         ];

@@ -1,3 +1,18 @@
+# Los archivos de build/ llevan una huella en el nombre (app-DHia50D_.js): si
+# el contenido cambia, cambia la URL. Se guardan para siempre en el navegador y
+# volver al sistema no vuelve a descargar nada. Las fotos de productos también
+# cambian de nombre al subir otra (img_<único>.webp), así que valen lo mismo.
+<IfModule mod_headers.c>
+    SetEnvIf Request_URI "^/build/" HUELLA_EN_EL_NOMBRE=1
+    SetEnvIf Request_URI "^/storage/products/" HUELLA_EN_EL_NOMBRE=1
+    Header set Cache-Control "public, max-age=31536000, immutable" env=HUELLA_EN_EL_NOMBRE
+</IfModule>
+
+# Texto comprimido al enviarlo (JS, CSS, JSON de la API, SVG): pesa ~4 veces menos.
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

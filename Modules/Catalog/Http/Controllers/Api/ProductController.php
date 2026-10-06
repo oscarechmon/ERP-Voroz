@@ -14,6 +14,7 @@ use Modules\Catalog\Exports\ProductsExport;
 use Modules\Catalog\Http\Requests\StoreProductRequest;
 use Modules\Catalog\Http\Requests\UpdateProductRequest;
 use Modules\Catalog\Http\Resources\ProductResource;
+use Modules\Catalog\Models\Product;
 use Modules\Catalog\Services\BarcodeService;
 use Modules\Catalog\Services\ProductService;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -34,8 +35,15 @@ class ProductController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $products = $this->service->list($request->all());
+        $data = ProductResource::collection($products)->response()->getData(true);
 
-        return $this->ok(ProductResource::collection($products)->response()->getData(true));
+        // La pantalla de Productos o Servicios muestra cuántos hay en la web:
+        // va en la misma respuesta para no hacer otra petición.
+        if (in_array($request->query('type'), Product::TYPES, true)) {
+            $data['web_published_total'] = Product::where('type', $request->query('type'))->where('web_published', true)->count();
+        }
+
+        return $this->ok($data);
     }
 
     public function store(StoreProductRequest $request): JsonResponse

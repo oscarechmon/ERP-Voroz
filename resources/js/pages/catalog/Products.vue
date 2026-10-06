@@ -73,13 +73,10 @@ const money = (n: number): string => new Intl.NumberFormat('es-PE', { style: 'cu
 async function load(): Promise<void> {
     loading.value = true;
     try {
-        const [res, published] = await Promise.all([
-            productsApi.list({ ...params, type: props.kind }),
-            productsApi.list({ type: props.kind, web: 'published', per_page: 1 }),
-        ]);
+        const res = await productsApi.list({ ...params, type: props.kind });
         rows.value = res.data;
         total.value = res.meta.total;
-        publishedTotal.value = published.meta.total;
+        publishedTotal.value = res.web_published_total ?? 0;
     } catch {
         toast.add({ severity: 'error', summary: 'Error', detail: `No se pudieron cargar los ${words.value.many}`, life: 3000 });
     } finally {
@@ -353,7 +350,7 @@ onMounted(() => {
                     <template #body="{ data }">
                         <div class="flex items-center gap-3">
                             <span class="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5">
-                                <img v-if="data.image_url" :src="data.image_url" class="h-full w-full object-cover" alt="" />
+                                <img v-if="data.image_url" :src="data.image_url" class="h-full w-full object-cover" alt="" loading="lazy" decoding="async" />
                                 <i v-else :class="['pi text-slate-400', words.icon]"></i>
                             </span>
                             <div class="min-w-0">

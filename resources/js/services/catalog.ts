@@ -84,8 +84,9 @@ export interface Option {
 const unwrap = <T>(res: { data: { data: T } }): T => res.data.data;
 
 export const productsApi = {
-    async list(params: TableQuery): Promise<Paginated<Product>> {
-        return unwrap<Paginated<Product>>(await http.get('/products', { params }));
+    /** Con `type`, trae además cuántos de ese tipo están publicados en la web. */
+    async list(params: TableQuery): Promise<Paginated<Product> & { web_published_total?: number }> {
+        return unwrap<Paginated<Product> & { web_published_total?: number }>(await http.get('/products', { params }));
     },
     async get(id: number): Promise<Product> {
         return unwrap<Product>(await http.get(`/products/${id}`));
@@ -105,6 +106,7 @@ export const productsApi = {
             });
             if (id) fd.append('_method', 'PUT'); // method spoofing para multipart
             body = fd;
+            config.timeout = 120000; // una foto de 4 MB con mala conexión tarda
         }
 
         const url = id ? `/products/${id}` : '/products';

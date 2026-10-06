@@ -236,4 +236,59 @@ router.beforeEach(async (to) => {
     return true;
 });
 
+/**
+ * Recuperación tras publicar una versión nueva.
+ *
+ * Cada pantalla se descarga al entrar en ella. Si mientras la pestaña estaba
+ * abierta se publicó otra versión, los archivos de la anterior ya no existen y
+ * esa descarga falla: la pantalla parece colgada. Recargar trae la versión
+ * nueva y continúa a donde el usuario quería ir. La marca evita el bucle si el
+ * fallo fuera por otra causa.
+ */
+const MARCA_RECARGA = 'sistema.recarga-por-version';
+
+router.onError((error: Error, to) => {
+    const archivoQueYaNoEsta = /dynamically imported module|Importing a module script failed|Unable to preload CSS|Failed to fetch/i.test(
+        error?.message ?? '',
+    );
+    if (!archivoQueYaNoEsta || sessionStorage.getItem(MARCA_RECARGA)) return;
+
+    sessionStorage.setItem(MARCA_RECARGA, '1');
+    window.location.assign(router.resolve(to.fullPath).href);
+});
+
+/**
+ * Precarga en segundo plano las pantallas del menú a las que el usuario tiene
+ * acceso, cuando el navegador está libre: así cambiar de pantalla no espera a
+ * descargarla. Se descargan una sola vez por versión (el navegador las guarda).
+ * No se hace con "ahorro de datos" ni en conexiones lentas.
+ */
+let precargado = false;
+
+function precargarPantallas(): void {
+    const auth = useAuthStore();
+    const conexion = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (precargado || !auth.isAuthenticated || conexion?.saveData || /2g/.test(conexion?.effectiveType ?? '')) return;
+    precargado = true;
+
+    const cuandoEsteLibre = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 2000));
+    cuandoEsteLibre(async () => {
+        for (const ruta of router.getRoutes()) {
+            const permiso = ruta.meta.permission as string | undefined;
+            const cargar = ruta.components?.default;
+            if (!permiso || !auth.can(permiso) || typeof cargar !== 'function') continue;
+            try {
+                await (cargar as () => Promise<unknown>)();
+            } catch {
+                // Si falla, se descarga al entrar como siempre.
+            }
+        }
+    });
+}
+
+router.afterEach(() => {
+    sessionStorage.removeItem(MARCA_RECARGA);
+    precargarPantallas();
+});
+
 export default router;

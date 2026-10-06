@@ -36,6 +36,16 @@ export const useAuthStore = defineStore('auth', {
     actions: {
         /** Carga el usuario autenticado al iniciar la app; nunca lanza. */
         async bootstrap(): Promise<void> {
+            // La primera vez la sesión ya viene en la página (app.blade.php):
+            // no hace falta preguntarle al servidor. Se usa una sola vez.
+            const boot = window as Window & { __SISTEMA_SESION__?: AuthUser | null };
+            if (boot.__SISTEMA_SESION__ !== undefined) {
+                this.user = boot.__SISTEMA_SESION__;
+                delete boot.__SISTEMA_SESION__;
+                this.ready = true;
+                return;
+            }
+
             try {
                 const { data } = await http.get('/auth/me');
                 this.user = data.data;

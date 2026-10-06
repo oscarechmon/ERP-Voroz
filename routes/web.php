@@ -3,6 +3,7 @@
 use App\Http\Controllers\ReleaseController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
+use Modules\Users\Http\Resources\UserResource;
 
 /*
 |--------------------------------------------------------------------------
@@ -95,6 +96,15 @@ Route::get('deploy/{token}', function (string $token) {
 | devuelve la misma vista para cualquier URL que no sea de la API o de assets,
 | permitiendo recargar el navegador en cualquier ruta del SPA.
 */
-Route::get('/{any?}', fn () => view('app'))
+Route::get('/{any?}', function () {
+    // La sesión viaja dentro de la página: la SPA arranca sin esperar una
+    // segunda petición a /auth/me. Por eso la página no se guarda en ninguna
+    // caché (lleva los datos de quien la pidió).
+    $user = auth()->user();
+
+    return response()
+        ->view('app', ['bootUser' => $user ? (new UserResource($user->load(['roles', 'permissions'])))->resolve() : null])
+        ->header('Cache-Control', 'no-store, private');
+})
     ->where('any', '^(?!api|sanctum|storage|build).*$')
     ->name('spa');

@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
+import type { ApexOptions } from 'apexcharts';
 import http from '@/lib/http';
 import Carousel from 'primevue/carousel';
 import { useUiStore } from '@/stores/ui';
 import StatCard from '@/components/StatCard.vue';
+
+// Los gráficos se descargan junto con el dashboard, no al abrir el sistema.
+const apexchart = defineAsyncComponent(() => import('vue3-apexcharts'));
 
 interface ProductStock {
     name: string;
@@ -66,7 +70,7 @@ const salesChart = computed(() => {
     const rows = m.value?.sales_by_day ?? [];
     return {
         series: [{ name: 'Ventas', data: rows.map((r) => r.total) }],
-        options: {
+        options: <ApexOptions>{
             chart: { type: 'area', toolbar: { show: false }, fontFamily: 'inherit' },
             colors: ['#3366ff'],
             dataLabels: { enabled: false },
@@ -85,7 +89,7 @@ const categoryChart = computed(() => {
     const rows = m.value?.sales_by_category ?? [];
     return {
         series: rows.map((r) => r.total),
-        options: {
+        options: <ApexOptions>{
             chart: { type: 'donut', fontFamily: 'inherit' },
             labels: rows.map((r) => r.category),
             colors: ['#3366ff', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'],
@@ -136,7 +140,7 @@ const categoryChart = computed(() => {
                 <template #item="{ data }">
                     <div class="mx-2 rounded-xl border border-[var(--surface-border)] p-4">
                         <div class="mb-3 grid h-24 place-items-center overflow-hidden rounded-lg bg-slate-50 dark:bg-slate-800/40">
-                            <img v-if="data.image_url" :src="data.image_url" :alt="data.name" class="h-full w-full object-contain" />
+                            <img v-if="data.image_url" :src="data.image_url" :alt="data.name" class="h-full w-full object-contain" loading="lazy" decoding="async" />
                             <i v-else class="pi pi-box text-3xl text-slate-300"></i>
                         </div>
                         <p class="truncate text-sm font-medium" :title="data.name">{{ data.name }}</p>

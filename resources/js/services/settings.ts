@@ -53,7 +53,7 @@ export const companyApi = {
             else if (k !== 'logo') fd.append(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
         });
         fd.append('_method', 'PUT');
-        return unwrap<Company>(await http.post('/settings/company', fd));
+        return unwrap<Company>(await http.post('/settings/company', fd, { timeout: 120000 }));
     },
 };
 

@@ -6,7 +6,6 @@ namespace Modules\Dashboard\Http\Controllers\Api;
 
 use App\Core\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
 use Modules\Dashboard\Services\DashboardService;
 
 class DashboardController extends ApiController
@@ -15,11 +14,9 @@ class DashboardController extends ApiController
     {
     }
 
-    /** Métricas del dashboard (cacheadas 60s para aligerar recargas frecuentes). */
+    /** Métricas del dashboard (reutilizadas un minuto; una venta las renueva). */
     public function metrics(): JsonResponse
     {
-        $data = Cache::remember('dashboard.metrics.' . auth()->id(), 60, fn () => $this->service->metrics());
-
-        return $this->ok($data);
+        return $this->ok($this->service->cached());
     }
 }

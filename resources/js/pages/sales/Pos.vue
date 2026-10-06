@@ -195,7 +195,7 @@ onMounted(async () => {
                     @click="addToCart(p)"
                 >
                     <span class="mb-2 grid h-16 w-full place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5">
-                        <img v-if="p.image_url" :src="p.image_url" class="h-full w-full object-cover" alt="" />
+                        <img v-if="p.image_url" :src="p.image_url" class="h-full w-full object-cover" alt="" loading="lazy" decoding="async" />
                         <i v-else class="pi pi-box text-2xl text-slate-300"></i>
                     </span>
                     <span class="line-clamp-2 text-sm font-medium">{{ p.name }}</span>

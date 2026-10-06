@@ -10,6 +10,9 @@ import { basePath } from './basePath';
  */
 const http: AxiosInstance = axios.create({
     baseURL: `${basePath}/api/v1`,
+    // Sin límite, una petición que no contesta deja la pantalla cargando para
+    // siempre. Las subidas de imágenes piden más tiempo por su cuenta.
+    timeout: 30000,
     withCredentials: true,
     withXSRFToken: true,
     headers: {

@@ -6,7 +6,6 @@ import PrimeVue from 'primevue/config';
 import ToastService from 'primevue/toastservice';
 import ConfirmationService from 'primevue/confirmationservice';
 import Tooltip from 'primevue/tooltip';
-import VueApexCharts from 'vue3-apexcharts';
 
 import App from './App.vue';
 import router from './router';
@@ -38,7 +37,8 @@ app.use(PrimeVue, {
 app.use(ToastService);
 app.use(ConfirmationService);
 app.directive('tooltip', Tooltip);
-app.component('apexchart', VueApexCharts);
+// Los gráficos (ApexCharts, ~500 KB) no se registran aquí: los importa solo la
+// pantalla que los usa, para no descargarlos al abrir cualquier otra.
 
 // Carga la sesión antes de montar para que el guard del router tenga el usuario.
 const auth = useAuthStore();

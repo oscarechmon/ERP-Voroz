@@ -191,7 +191,9 @@ class WebCatalogTest extends TestCase
         Product::factory()->service()->create(['category_id' => $faciales->id, 'web_published' => null]);
         Product::factory()->create(['category_id' => $suplementos->id, 'web_published' => true]);
 
-        $this->getJson('/api/v1/products?type=service')->assertOk()->assertJsonPath('data.meta.total', 2);
+        $this->getJson('/api/v1/products?type=service')->assertOk()
+            ->assertJsonPath('data.meta.total', 2)
+            ->assertJsonPath('data.web_published_total', 1);
         $this->getJson('/api/v1/products?type=service&web=published')->assertOk()->assertJsonPath('data.meta.total', 1);
         $this->getJson('/api/v1/products?type=service&web=hidden')->assertOk()->assertJsonPath('data.meta.total', 1);
 

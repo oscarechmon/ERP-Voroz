@@ -47,13 +47,23 @@ class OnlineOrder extends Model implements Auditable
      */
     public const WEB_STATUSES = [self::PENDING_PAYMENT, self::PAYMENT_FAILED, self::PAID];
 
+    /** Delivery en Lima, a la dirección del cliente. */
     public const DELIVERY = 'delivery';
+
+    /** Envío a provincia por agencia (Shalom): se recoge en la agencia con DNI/CE. */
+    public const PROVINCE = 'province';
 
     public const PICKUP = 'pickup';
 
+    public const FULFILLMENTS = [self::DELIVERY, self::PROVINCE, self::PICKUP];
+
+    /** Documentos con los que se recoge un envío a provincia. */
+    public const DOCUMENT_TYPES = ['dni', 'ce'];
+
     protected $fillable = [
         'web_id', 'code', 'customer_id', 'sale_id', 'status', 'fulfillment',
-        'customer_name', 'customer_email', 'recipient_name', 'phone', 'address', 'district', 'reference', 'notes',
+        'customer_name', 'customer_email', 'recipient_name', 'document_type', 'document_number', 'phone',
+        'address', 'district', 'reference', 'department', 'province', 'agency', 'notes',
         'subtotal', 'delivery_fee', 'total', 'gateway', 'payment_reference', 'paid_at', 'ordered_at',
     ];
 
@@ -85,6 +95,21 @@ class OnlineOrder extends Model implements Auditable
         return $this->belongsTo(Sale::class);
     }
 
+    public static function fulfillmentLabel(string $fulfillment): string
+    {
+        return match ($fulfillment) {
+            self::DELIVERY => 'Delivery en Lima',
+            self::PROVINCE => 'Envío a provincia (Shalom)',
+            default => 'Recojo en el centro',
+        };
+    }
+
+    /** Se envía (delivery o agencia) en lugar de recogerse en el centro. */
+    public function isShipped(): bool
+    {
+        return in_array($this->fulfillment, [self::DELIVERY, self::PROVINCE], true);
+    }
+
     public function isPaid(): bool
     {
         return in_array($this->status, self::PAID_STATUSES, true);
@@ -101,7 +126,7 @@ class OnlineOrder extends Model implements Auditable
         return match ($this->status) {
             self::PENDING_PAYMENT, self::PAYMENT_FAILED => [self::CANCELLED],
             self::PAID => [self::PREPARING, self::CANCELLED],
-            self::PREPARING => [$this->fulfillment === self::DELIVERY ? self::SHIPPED : self::READY_FOR_PICKUP, self::CANCELLED],
+            self::PREPARING => [$this->isShipped() ? self::SHIPPED : self::READY_FOR_PICKUP, self::CANCELLED],
             self::SHIPPED, self::READY_FOR_PICKUP => [self::DELIVERED],
             default => [],
         };

@@ -49,7 +49,7 @@ class WebSaleService
 
             $deliveryFee = (float) ($data['delivery_fee'] ?? 0);
             if ($deliveryFee > 0) {
-                $items[] = ['description' => 'Delivery', 'quantity' => 1, 'price' => $deliveryFee];
+                $items[] = ['description' => $data['delivery_label'] ?? 'Delivery', 'quantity' => 1, 'price' => $deliveryFee];
             }
 
             $sale = $this->sales->checkout([

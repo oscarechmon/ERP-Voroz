@@ -10,9 +10,11 @@ import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
 import Tag from 'primevue/tag';
 import IconField from 'primevue/iconfield';
+import InputNumber from 'primevue/inputnumber';
+import ToggleSwitch from 'primevue/toggleswitch';
 import InputIcon from 'primevue/inputicon';
 import { AxiosError } from 'axios';
-import { onlineOrdersApi, ORDER_STATUS, type OnlineOrder, type OnlineOrderStatus } from '@/services/onlineOrders';
+import { onlineOrdersApi, DOCUMENT_TYPE, FULFILLMENT, ORDER_STATUS, type Fulfillment, type OnlineOrder, type OnlineOrderStatus } from '@/services/onlineOrders';
 import { useAuthStore } from '@/stores/auth';
 
 const toast = useToast();
@@ -29,7 +31,15 @@ const statusOptions = [
     { label: 'En curso (por atender)', value: 'active' },
     ...Object.entries(ORDER_STATUS).map(([value, s]) => ({ label: s.label, value })),
 ];
-const fulfillmentOptions = [{ label: 'Delivery', value: 'delivery' }, { label: 'Recojo en el centro', value: 'pickup' }];
+const fulfillmentOptions = Object.entries(FULFILLMENT).map(([value, f]) => ({ label: f.label, value }));
+
+/** Dónde se entrega, en una línea: distrito en Lima, ciudad en provincia. */
+const destination = (o: OnlineOrder): string => {
+    if (o.fulfillment === 'province') return [o.province, o.department].filter(Boolean).join(', ') || FULFILLMENT.province.short;
+    if (o.fulfillment === 'delivery') return o.district ?? FULFILLMENT.delivery.short;
+    return FULFILLMENT.pickup.short;
+};
+const fulfillmentOf = (o: OnlineOrder) => FULFILLMENT[o.fulfillment as Fulfillment] ?? FULFILLMENT.pickup;
 
 async function load(): Promise<void> {
     loading.value = true;
@@ -77,14 +87,49 @@ async function move(to: OnlineOrderStatus): Promise<void> {
     }
 }
 
+// --- Costos de envío -------------------------------------------------------
+const shippingVisible = ref(false);
+const shippingSaving = ref(false);
+const shipping = reactive({
+    delivery: { enabled: true, fee: 10 },
+    province: { enabled: true, fee: 12 },
+});
+
+async function openShipping(): Promise<void> {
+    const rates = await onlineOrdersApi.shipping();
+    shipping.delivery = { enabled: rates.delivery.enabled, fee: rates.delivery.fee };
+    shipping.province = { enabled: rates.province.enabled, fee: rates.province.fee };
+    shippingVisible.value = true;
+}
+
+async function saveShipping(): Promise<void> {
+    shippingSaving.value = true;
+    try {
+        await onlineOrdersApi.saveShipping({
+            delivery: { enabled: shipping.delivery.enabled, fee: Number(shipping.delivery.fee ?? 0) },
+            province: { enabled: shipping.province.enabled, fee: Number(shipping.province.fee ?? 0) },
+        });
+        shippingVisible.value = false;
+        toast.add({ severity: 'success', summary: 'Costos de envío guardados', detail: 'La web los cobra desde ahora.', life: 3500 });
+    } catch (e) {
+        const ax = e as AxiosError<{ message?: string }>;
+        toast.add({ severity: 'warn', summary: 'No se pudo guardar', detail: ax.response?.data?.message, life: 4000 });
+    } finally {
+        shippingSaving.value = false;
+    }
+}
+
 onMounted(load);
 </script>
 
 <template>
     <div class="space-y-5">
-        <div>
-            <h1 class="text-2xl font-bold tracking-tight">Pedidos online</h1>
-            <p class="text-sm text-slate-500">Pedidos de la tienda web pagados con Izipay y su seguimiento de entrega</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">Pedidos online</h1>
+                <p class="text-sm text-slate-500">Pedidos de la tienda web pagados con Izipay y su seguimiento de entrega</p>
+            </div>
+            <Button v-if="auth.can('settings.edit')" label="Costos de envío" icon="pi pi-truck" severity="secondary" outlined @click="openShipping" />
         </div>
 
         <div class="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-card)] p-4 shadow-sm">
@@ -111,8 +156,7 @@ onMounted(load);
                 </Column>
                 <Column header="Entrega">
                     <template #body="{ data }">
-                        <i :class="['pi mr-1', data.fulfillment === 'delivery' ? 'pi-truck' : 'pi-shop']"></i>
-                        {{ data.fulfillment === 'delivery' ? (data.district ?? 'Delivery') : 'Recojo' }}
+                        <span v-tooltip.top="fulfillmentOf(data).label"><i :class="[fulfillmentOf(data).icon, 'mr-1']"></i>{{ destination(data) }}</span>
                     </template>
                 </Column>
                 <Column header="Total"><template #body="{ data }"><span class="font-semibold">{{ money(data.total) }}</span></template></Column>
@@ -140,10 +184,22 @@ onMounted(load);
                         <p class="text-xs">{{ detail.customer_email }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-slate-400">{{ detail.fulfillment === 'delivery' ? 'Entregar a' : 'Recoge' }}</p>
+                        <p class="text-xs text-slate-400">{{ detail.fulfillment === 'pickup' ? 'Recoge' : 'Entregar a' }}</p>
                         <p class="font-medium">{{ detail.recipient_name }} · {{ detail.phone }}</p>
+                        <p v-if="detail.document_number" class="text-xs">{{ DOCUMENT_TYPE[detail.document_type ?? 'dni'] }} {{ detail.document_number }}</p>
                         <p v-if="detail.fulfillment === 'delivery'" class="text-xs">{{ detail.address }}, {{ detail.district }}<span v-if="detail.reference"> ({{ detail.reference }})</span></p>
                     </div>
+                </div>
+
+                <div v-if="detail.fulfillment === 'province'" class="rounded-lg border border-[var(--surface-border)] p-3">
+                    <p class="mb-1 flex items-center gap-2 font-semibold"><i class="pi pi-send"></i> Envío a provincia por Shalom</p>
+                    <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                        <span class="text-slate-400">Destino</span><span>{{ detail.province }}, {{ detail.department }}</span>
+                        <span class="text-slate-400">Agencia Shalom</span><span>{{ detail.agency }}</span>
+                        <span class="text-slate-400">Recoge</span><span>{{ detail.recipient_name }}</span>
+                        <span class="text-slate-400">{{ DOCUMENT_TYPE[detail.document_type ?? 'dni'] }}</span><span>{{ detail.document_number }}</span>
+                    </div>
+                    <p class="mt-2 text-xs text-slate-400">Registra el envío en Shalom con estos datos y anota el n.º de orden en la nota al pasarlo a «En camino».</p>
                 </div>
                 <p v-if="detail.notes" class="rounded-lg bg-slate-50 p-2 text-xs dark:bg-white/5">{{ detail.notes }}</p>
 
@@ -153,7 +209,7 @@ onMounted(load);
                             <td class="py-1">{{ i.quantity }} × {{ i.name }}</td>
                             <td class="py-1 text-right">{{ money(i.subtotal) }}</td>
                         </tr>
-                        <tr v-if="detail.delivery_fee > 0"><td class="py-1 text-slate-500">Delivery</td><td class="py-1 text-right">{{ money(detail.delivery_fee) }}</td></tr>
+                        <tr v-if="detail.delivery_fee > 0"><td class="py-1 text-slate-500">{{ detail.fulfillment_label }}</td><td class="py-1 text-right">{{ money(detail.delivery_fee) }}</td></tr>
                         <tr><td class="py-1 font-bold">Total</td><td class="py-1 text-right font-bold">{{ money(detail.total) }}</td></tr>
                     </tbody>
                 </table>
@@ -182,6 +238,35 @@ onMounted(load);
                     </div>
                 </div>
             </div>
+        </Dialog>
+
+        <Dialog v-model:visible="shippingVisible" modal header="Costos de envío de la tienda web" :style="{ width: '520px' }">
+            <p class="mb-4 text-sm text-slate-500">Se suman al total cuando el cliente elige cómo recibir su pedido. Solo aplican a pedidos con productos: los servicios se atienden en el centro.</p>
+            <div class="space-y-3">
+                <div
+                    v-for="zone in (['delivery', 'province'] as const)" :key="zone"
+                    class="flex flex-wrap items-center gap-4 rounded-xl border border-[var(--surface-border)] p-4"
+                    :class="{ 'opacity-60': !shipping[zone].enabled }"
+                >
+                    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-100 text-lg dark:bg-white/5"><i :class="FULFILLMENT[zone].icon"></i></span>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-semibold">{{ FULFILLMENT[zone].label }}</p>
+                        <div class="mt-1 flex items-center gap-2">
+                            <ToggleSwitch v-model="shipping[zone].enabled" :input-id="'ship-' + zone" />
+                            <label :for="'ship-' + zone" class="text-xs text-slate-500">{{ shipping[zone].enabled ? 'Se ofrece en la web' : 'No se ofrece' }}</label>
+                        </div>
+                        <p v-if="zone === 'province'" class="mt-1 text-xs text-slate-400">El cliente da su DNI o CE y la agencia Shalom donde recoge.</p>
+                    </div>
+                    <InputNumber
+                        v-model="shipping[zone].fee" mode="currency" currency="PEN" locale="es-PE" :min="0" :max="9999"
+                        input-class="w-28 text-right" :disabled="!shipping[zone].enabled"
+                    />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Cancelar" text @click="shippingVisible = false" />
+                <Button label="Guardar" icon="pi pi-check" :loading="shippingSaving" @click="saveShipping" />
+            </template>
         </Dialog>
     </div>
 </template>

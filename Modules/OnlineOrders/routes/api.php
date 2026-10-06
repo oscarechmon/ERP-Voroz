@@ -11,6 +11,10 @@ use Modules\OnlineOrders\Http\Controllers\Api\OnlineOrderController;
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::controller(OnlineOrderController::class)->prefix('online-orders')->group(function (): void {
         Route::get('/', 'index')->middleware('permission:online_orders.view');
+        // Costos de envío (delivery en Lima y envío a provincia) que cobra la web.
+        Route::get('shipping', 'shipping')->middleware('permission:online_orders.view');
+        // Cambiar lo que se cobra es de administración, no de quien atiende los pedidos.
+        Route::put('shipping', 'updateShipping')->middleware('permission:settings.edit');
         Route::get('{order}', 'show')->whereNumber('order')->middleware('permission:online_orders.view');
         Route::post('{order}/status', 'status')->whereNumber('order')->middleware('permission:online_orders.edit');
     });

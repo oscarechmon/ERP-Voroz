@@ -157,6 +157,64 @@ class WebMigrationTest extends TestCase
         $this->assertSame('Empacando', $statuses['history'][0]['note']);
     }
 
+    public function test_un_envio_a_provincia_guarda_documento_y_agencia_y_se_despacha(): void
+    {
+        $crema = $this->productWithStock(10);
+        $this->api('POST', 'orders', $this->order($crema, 'paid', [
+            'fulfillment' => 'province',
+            'recipient_name' => 'Ana María Pérez Quispe',
+            'document_type' => 'dni',
+            'document_number' => '45678912',
+            'address' => null,
+            'district' => null,
+            'department' => 'Arequipa',
+            'province' => 'Arequipa',
+            'agency' => 'Shalom Av. Ejército, Cayma',
+            'delivery_fee' => 12,
+            'total' => 112,
+        ]))->assertOk();
+
+        $order = OnlineOrder::where('code', 'W-000017')->sole();
+        $this->assertSame('province', $order->fulfillment);
+        $this->assertSame('45678912', $order->document_number);
+        $this->assertSame('Shalom Av. Ejército, Cayma', $order->agency);
+
+        // La venta lleva el envío como su propia línea.
+        $sale = Sale::where('external_reference', 'W-000017')->sole();
+        $this->assertTrue($sale->items()->where('description', 'Envío a provincia (Shalom)')->where('price', 12)->exists());
+
+        // Se despacha por agencia: después de preparar va "En camino", no "Listo para recoger".
+        $this->actingAsRole('Recepción');
+        $this->postJson("/api/v1/online-orders/{$order->id}/status", ['status' => 'preparing'])->assertOk();
+        $this->getJson("/api/v1/online-orders/{$order->id}")->assertOk()
+            ->assertJsonPath('data.next_statuses', ['shipped', 'cancelled'])
+            ->assertJsonPath('data.fulfillment_label', 'Envío a provincia (Shalom)')
+            ->assertJsonPath('data.document_number', '45678912');
+    }
+
+    public function test_los_costos_de_envio_se_cambian_aqui_y_la_web_los_lee(): void
+    {
+        $this->api('GET', 'shipping')->assertOk()
+            ->assertJsonPath('data.delivery.fee', 10)
+            ->assertJsonPath('data.province.fee', 12)
+            ->assertJsonPath('data.province.enabled', true);
+
+        $rates = ['delivery' => ['enabled' => true, 'fee' => 11], 'province' => ['enabled' => false, 'fee' => 13.5]];
+
+        // Quien atiende los pedidos los ve, pero cambiarlos es de administración.
+        $this->actingAsRole('Recepción');
+        $this->getJson('/api/v1/online-orders/shipping')->assertOk();
+        $this->putJson('/api/v1/online-orders/shipping', $rates)->assertForbidden();
+
+        $this->actingAsRole('Administrador');
+        $this->putJson('/api/v1/online-orders/shipping', $rates)->assertOk()
+            ->assertJsonPath('data.province.fee', 13.5);
+
+        $this->api('GET', 'shipping')->assertOk()
+            ->assertJsonPath('data.delivery.fee', 11)
+            ->assertJsonPath('data.province.enabled', false);
+    }
+
     public function test_anular_un_pedido_pagado_anula_la_venta_y_devuelve_el_stock(): void
     {
         $crema = $this->productWithStock(10);

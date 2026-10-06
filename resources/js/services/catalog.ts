@@ -111,6 +111,11 @@ export const productsApi = {
         const res = id && !hasFile ? await http.put(url, body, config) : await http.post(url, body, config);
         return unwrap<Product>(res);
     },
+    /** Publica u oculta el ítem en la web, sin tocar nada más. */
+    async publish(id: number, published: boolean): Promise<{ product: Product; message: string }> {
+        const res = await http.post(`/products/${id}/web`, { web_published: published });
+        return { product: res.data.data as Product, message: res.data.message as string };
+    },
     async remove(id: number): Promise<void> {
         await http.delete(`/products/${id}`);
     },
@@ -140,8 +145,9 @@ function crud<T>(resource: string) {
         async list(params: TableQuery): Promise<Paginated<T>> {
             return unwrap<Paginated<T>>(await http.get(`/${resource}`, { params }));
         },
-        async options(): Promise<Option[]> {
-            return unwrap<Option[]>(await http.get(`/${resource}`, { params: { all: 1 } }));
+        /** Lista completa para selects; `params` la acota (p. ej. categorías de servicios). */
+        async options(params: Record<string, unknown> = {}): Promise<Option[]> {
+            return unwrap<Option[]>(await http.get(`/${resource}`, { params: { all: 1, ...params } }));
         },
         async save(payload: Partial<T>, id?: number): Promise<T> {
             const res = id ? await http.put(`/${resource}/${id}`, payload) : await http.post(`/${resource}`, payload);

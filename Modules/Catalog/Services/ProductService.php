@@ -72,6 +72,21 @@ class ProductService extends BaseService
     }
 
     /**
+     * Publica u oculta el ítem en la web, sin tocar nada más. Al guardarse se
+     * avisa a la web (IntegrationServiceProvider), que lo muestra o lo quita.
+     */
+    public function publish(int|string $id, bool $published): Product
+    {
+        $this->guardPackage($id);
+
+        /** @var Product $product */
+        $product = Product::findOrFail($id);
+        $product->update(['web_published' => $published]);
+
+        return $this->products->findOrFail($product->id);
+    }
+
+    /**
      * Cambia la imagen del producto (borra la anterior). Se guarda sin pasar
      * por los eventos, como al crearlo: quien llama decide si avisar.
      */

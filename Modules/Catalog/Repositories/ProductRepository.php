@@ -31,6 +31,21 @@ class ProductRepository extends BaseRepository implements ProductRepositoryInter
         return parent::query()->withSum('stocks', 'quantity');
     }
 
+    /**
+     * Además de los filtros comunes, `web`: `published` (lo que se ve en la
+     * web) o `hidden` (lo que no, incluido lo que nunca se decidió).
+     */
+    protected function applyFilters(Builder $query, array $filters): Builder
+    {
+        match ($filters['web'] ?? null) {
+            'published' => $query->where('web_published', true),
+            'hidden' => $query->where(fn (Builder $q) => $q->where('web_published', false)->orWhereNull('web_published')),
+            default => null,
+        };
+
+        return parent::applyFilters($query, $filters);
+    }
+
     public function findByBarcode(string $barcode): ?Model
     {
         return $this->query()

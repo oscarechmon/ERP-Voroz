@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 use Modules\OnlineOrders\Http\Resources\OnlineOrderResource;
 use Modules\OnlineOrders\Models\OnlineOrder;
 use Modules\OnlineOrders\Services\OnlineOrderService;
+use Modules\OnlineOrders\Services\ShippingRates;
 
 /** Pedidos de la tienda online y su seguimiento. */
 class OnlineOrderController extends ApiController
@@ -23,7 +24,7 @@ class OnlineOrderController extends ApiController
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in(array_merge(OnlineOrder::STATUSES, ['active']))],
-            'fulfillment' => ['nullable', Rule::in([OnlineOrder::DELIVERY, OnlineOrder::PICKUP])],
+            'fulfillment' => ['nullable', Rule::in(OnlineOrder::FULFILLMENTS)],
             'per_page' => ['nullable', 'integer'],
         ]);
 
@@ -32,7 +33,8 @@ class OnlineOrderController extends ApiController
                 ->where('code', 'like', "%{$term}%")
                 ->orWhere('customer_name', 'like', "%{$term}%")
                 ->orWhere('customer_email', 'like', "%{$term}%")
-                ->orWhere('recipient_name', 'like', "%{$term}%")))
+                ->orWhere('recipient_name', 'like', "%{$term}%")
+                ->orWhere('document_number', 'like', "%{$term}%")))
             // "active" = cobrados y aún sin entregar: lo que el personal tiene que mover.
             ->when(($filters['status'] ?? null) === 'active', fn (Builder $q) => $q->whereIn('status', [OnlineOrder::PAID, OnlineOrder::PREPARING, OnlineOrder::SHIPPED, OnlineOrder::READY_FOR_PICKUP]))
             ->when(($filters['status'] ?? 'active') !== 'active', fn (Builder $q) => $q->where('status', $filters['status']))
@@ -58,5 +60,27 @@ class OnlineOrderController extends ApiController
         $result = $this->service->changeStatus(OnlineOrder::findOrFail($order), $data['status'], $data['note'] ?? null);
 
         return $this->ok(new OnlineOrderResource($result), 'Pedido '.$result->code.': '.OnlineOrderService::label($result->status).'.');
+    }
+
+    public function shipping(ShippingRates $rates): JsonResponse
+    {
+        return $this->ok($rates->all());
+    }
+
+    public function updateShipping(Request $request, ShippingRates $rates): JsonResponse
+    {
+        $data = $request->validate([
+            'delivery' => ['required', 'array'],
+            'delivery.enabled' => ['required', 'boolean'],
+            'delivery.fee' => ['required', 'numeric', 'min:0', 'max:9999'],
+            'province' => ['required', 'array'],
+            'province.enabled' => ['required', 'boolean'],
+            'province.fee' => ['required', 'numeric', 'min:0', 'max:9999'],
+        ], [
+            'delivery.fee.required' => 'Indica el costo del delivery en Lima.',
+            'province.fee.required' => 'Indica el costo del envío a provincia.',
+        ]);
+
+        return $this->ok($rates->update($data), 'Costos de envío guardados. La web los cobra desde ahora.');
     }
 }

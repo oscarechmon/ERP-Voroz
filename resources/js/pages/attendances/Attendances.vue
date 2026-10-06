@@ -248,7 +248,7 @@ onMounted(async () => {
                         <label class="text-sm font-medium">Insumos usados</label>
                         <button type="button" class="text-sm text-brand-600 hover:underline" @click="addSupply"><i class="pi pi-plus text-xs"></i> Agregar insumo</button>
                     </div>
-                    <p v-if="!form.supplies.length" class="text-xs text-slate-400">Sin insumos. Los que el servicio usa normalmente se proponen solos (se configuran en Productos y servicios).</p>
+                    <p v-if="!form.supplies.length" class="text-xs text-slate-400">Sin insumos. Los que el servicio usa normalmente se proponen solos (se configuran en Centro › Servicios, botón de insumos).</p>
                     <div v-for="(s, i) in form.supplies" :key="i" class="mb-2 flex items-center gap-2">
                         <Select v-model="s.product_id" :options="supplies" option-label="name" option-value="id" filter class="flex-1" placeholder="Insumo" />
                         <InputNumber v-model="s.quantity" :min="0.01" :max-fraction-digits="2" class="w-28" input-class="text-right" />

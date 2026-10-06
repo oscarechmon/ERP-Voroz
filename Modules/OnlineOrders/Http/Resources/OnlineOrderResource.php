@@ -6,6 +6,7 @@ namespace Modules\OnlineOrders\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\OnlineOrders\Models\OnlineOrder;
 
 /** @mixin \Modules\OnlineOrders\Models\OnlineOrder */
 class OnlineOrderResource extends JsonResource
@@ -18,14 +19,20 @@ class OnlineOrderResource extends JsonResource
             'status' => $this->status,
             'next_statuses' => $this->nextStatuses(),
             'fulfillment' => $this->fulfillment,
+            'fulfillment_label' => OnlineOrder::fulfillmentLabel((string) $this->fulfillment),
             'customer_id' => $this->customer_id,
             'customer_name' => $this->customer?->name ?? $this->customer_name,
             'customer_email' => $this->customer_email,
             'recipient_name' => $this->recipient_name,
+            'document_type' => $this->document_type,
+            'document_number' => $this->document_number,
             'phone' => $this->phone,
             'address' => $this->address,
             'district' => $this->district,
             'reference' => $this->reference,
+            'department' => $this->department,
+            'province' => $this->province,
+            'agency' => $this->agency,
             'notes' => $this->notes,
             'subtotal' => (float) $this->subtotal,
             'delivery_fee' => (float) $this->delivery_fee,

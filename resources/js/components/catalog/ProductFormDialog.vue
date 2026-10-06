@@ -5,16 +5,23 @@ import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
-import SelectButton from 'primevue/selectbutton';
 import ToggleSwitch from 'primevue/toggleswitch';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import { AxiosError } from 'axios';
-import { brandsApi, categoriesApi, productsApi, unitsApi, PRODUCT_TYPES, type Option, type Product, type ProductType } from '@/services/catalog';
+import { brandsApi, categoriesApi, productsApi, unitsApi, type Option, type Product, type ProductType } from '@/services/catalog';
+import { useAuthStore } from '@/stores/auth';
 
-const props = defineProps<{ visible: boolean; product: Product | null }>();
+/**
+ * Alta y edición de un producto o servicio. Arriba lo que hace falta (nombre,
+ * categoría, precio, foto, descripción y si se publica en la web); los datos
+ * de inventario y códigos quedan en «Más datos», que casi nunca se tocan. A la
+ * derecha se ve cómo quedará en la web mientras se escribe.
+ */
+const props = withDefaults(defineProps<{ visible: boolean; product: Product | null; kind?: 'product' | 'service' }>(), { kind: 'product' });
 const emit = defineEmits<{ 'update:visible': [boolean]; saved: [] }>();
 
+const auth = useAuthStore();
 const categories = ref<Option[]>([]);
 const brands = ref<Option[]>([]);
 const units = ref<Option[]>([]);
@@ -22,11 +29,12 @@ const saving = ref(false);
 const errors = ref<Record<string, string[]>>({});
 const imageFile = ref<File | null>(null);
 const currentImage = ref<string | null>(null);
+const showMore = ref(false);
 // Lo que se ve: la imagen recién elegida o la que ya tiene.
 const preview = computed(() => (imageFile.value ? URL.createObjectURL(imageFile.value) : currentImage.value));
 
-const blank = () => ({
-    type: 'product' as ProductType,
+const blank = (type: ProductType) => ({
+    type,
     name: '',
     code: '',
     barcode: '',
@@ -43,23 +51,35 @@ const blank = () => ({
     stock_max: null as number | null,
     is_active: true,
     // null en lo que llegó de la web y nadie tocó aquí: no se cambia al guardar.
+    // Lo nuevo nace sin publicar: un insumo no debe aparecer en la tienda.
     web_published: false as boolean | null,
-    duration_minutes: null as number | null,
+    duration_minutes: (type === 'service' ? 60 : null) as number | null,
 });
 
-const form = ref(blank());
+const form = ref(blank(props.kind));
 const isEdit = computed(() => props.product !== null);
 const isService = computed(() => form.value.type === 'service');
 const noun = computed(() => (isService.value ? 'servicio' : 'producto'));
 const title = computed(() => (isEdit.value ? `Editar ${noun.value}` : `Nuevo ${noun.value}`));
+const categoryName = computed(() => categories.value.find((c) => c.id === form.value.category_id)?.name ?? null);
+const money = (n: number | null): string => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n ?? 0);
 
-// Carga las opciones de selects una vez al abrir por primera vez.
-async function ensureOptions(): Promise<void> {
-    if (categories.value.length) return;
+/** Campos que viven en «Más datos»: si alguno trae error, se abre solo. */
+const MORE_FIELDS = ['code', 'barcode', 'sku', 'brand_id', 'unit_id', 'wholesale_price', 'offer_price', 'stock_max', 'is_active'];
+
+/** Lo que conviene completar antes de publicar (no impide guardar). */
+const checklist = computed(() => [
+    { label: 'Foto', ok: !!preview.value },
+    { label: 'Descripción', ok: !!form.value.description?.trim() },
+    { label: 'Precio', ok: (form.value.price ?? 0) > 0 },
+    { label: 'Categoría', ok: !!form.value.category_id },
+]);
+
+async function loadOptions(type: ProductType): Promise<void> {
     [categories.value, brands.value, units.value] = await Promise.all([
-        categoriesApi.options(),
-        brandsApi.options(),
-        unitsApi.options(),
+        categoriesApi.options({ for: type }),
+        brands.value.length ? Promise.resolve(brands.value) : brandsApi.options(),
+        units.value.length ? Promise.resolve(units.value) : unitsApi.options(),
     ]);
 }
 
@@ -69,39 +89,65 @@ watch(
         if (!open) return;
         errors.value = {};
         imageFile.value = null;
+        showMore.value = false;
+        newCategory.value = null;
         currentImage.value = props.product?.image_url ?? null;
-        await ensureOptions();
-        if (props.product) {
-            const p = props.product;
-            form.value = {
-                type: p.type,
-                name: p.name,
-                code: p.code,
-                barcode: p.barcode ?? '',
-                sku: p.sku ?? '',
-                description: p.description ?? '',
-                category_id: p.category_id,
-                brand_id: p.brand_id,
-                unit_id: p.unit_id,
-                cost: p.cost,
-                price: p.price,
-                wholesale_price: p.wholesale_price,
-                offer_price: p.offer_price,
-                stock_min: p.stock_min,
-                stock_max: p.stock_max,
-                is_active: p.is_active,
-                web_published: p.web_published,
-                duration_minutes: p.duration_minutes,
-            };
-        } else {
-            form.value = blank();
-        }
+        const p = props.product;
+        form.value = p
+            ? {
+                  type: p.type,
+                  name: p.name,
+                  code: p.code,
+                  barcode: p.barcode ?? '',
+                  sku: p.sku ?? '',
+                  description: p.description ?? '',
+                  category_id: p.category_id,
+                  brand_id: p.brand_id,
+                  unit_id: p.unit_id,
+                  cost: p.cost,
+                  price: p.price,
+                  wholesale_price: p.wholesale_price,
+                  offer_price: p.offer_price,
+                  stock_min: p.stock_min,
+                  stock_max: p.stock_max,
+                  is_active: p.is_active,
+                  web_published: p.web_published,
+                  duration_minutes: p.duration_minutes,
+              }
+            : blank(props.kind);
+        await loadOptions(form.value.type);
     },
 );
 
 function onFile(e: Event): void {
     const target = e.target as HTMLInputElement;
     imageFile.value = target.files?.[0] ?? null;
+}
+
+function onDrop(e: DragEvent): void {
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) imageFile.value = file;
+}
+
+// --- Categoría nueva sin salir del formulario ----------------------------
+const newCategory = ref<string | null>(null);
+const creatingCategory = ref(false);
+
+async function createCategory(): Promise<void> {
+    const name = newCategory.value?.trim();
+    if (!name) return;
+    creatingCategory.value = true;
+    try {
+        const created = await categoriesApi.save({ name, is_active: true });
+        categories.value = [...categories.value, { id: created.id, name: created.name }];
+        form.value.category_id = created.id;
+        newCategory.value = null;
+    } catch (e) {
+        const ax = e as AxiosError<{ errors?: Record<string, string[]>; message?: string }>;
+        errors.value = { ...errors.value, category_id: ax.response?.data?.errors?.name ?? [ax.response?.data?.message ?? 'No se pudo crear la categoría.'] };
+    } finally {
+        creatingCategory.value = false;
+    }
 }
 
 const err = (field: string): string | undefined => errors.value[field]?.[0];
@@ -117,6 +163,7 @@ async function submit(): Promise<void> {
         const ax = e as AxiosError<{ errors?: Record<string, string[]>; message?: string }>;
         if (ax.response?.status === 422) {
             errors.value = ax.response.data.errors ?? {};
+            if (MORE_FIELDS.some((f) => errors.value[f])) showMore.value = true;
         }
     } finally {
         saving.value = false;
@@ -131,114 +178,232 @@ const close = () => emit('update:visible', false);
         :visible="visible"
         modal
         :header="title"
-        :style="{ width: '720px' }"
+        :style="{ width: '920px' }"
+        :breakpoints="{ '960px': '96vw' }"
         :dismissable-mask="true"
         @update:visible="close"
     >
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div class="md:col-span-2">
-                <label class="mb-1 block text-sm font-medium">Tipo</label>
-                <SelectButton v-model="form.type" :options="PRODUCT_TYPES" option-label="label" option-value="value" :allow-empty="false" />
-                <p v-if="isService" class="mt-1 text-xs text-slate-400">Los servicios se venden pero no llevan stock.</p>
-            </div>
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_280px]">
+            <!-- Datos -->
+            <div class="space-y-5">
+                <section class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div class="sm:col-span-2">
+                        <label class="mb-1 block text-sm font-medium" for="pf-name">Nombre *</label>
+                        <InputText
+                            id="pf-name"
+                            v-model="form.name"
+                            class="w-full"
+                            :placeholder="isService ? 'Ej.: Limpieza facial profunda' : 'Ej.: Colágeno hidrolizado 300 g'"
+                            :invalid="!!err('name')"
+                        />
+                        <Message v-if="err('name')" severity="error" size="small" variant="simple">{{ err('name') }}</Message>
+                    </div>
 
-            <div class="md:col-span-2">
-                <label class="mb-1 block text-sm font-medium">Nombre *</label>
-                <InputText v-model="form.name" class="w-full" :invalid="!!err('name')" />
-                <Message v-if="err('name')" severity="error" size="small" variant="simple">{{ err('name') }}</Message>
-            </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">Categoría</label>
+                        <div v-if="newCategory === null" class="flex gap-2">
+                            <Select
+                                v-model="form.category_id"
+                                :options="categories"
+                                option-label="name"
+                                option-value="id"
+                                class="min-w-0 flex-1"
+                                filter
+                                show-clear
+                                :placeholder="isService ? 'Ej.: Faciales' : 'Ej.: Suplementos'"
+                                :invalid="!!err('category_id')"
+                            />
+                            <Button
+                                v-if="auth.can('categories.create')"
+                                icon="pi pi-plus"
+                                severity="secondary"
+                                outlined
+                                v-tooltip.top="'Nueva categoría'"
+                                @click="newCategory = ''"
+                            />
+                        </div>
+                        <div v-else class="flex gap-2">
+                            <InputText v-model="newCategory" class="min-w-0 flex-1" placeholder="Nombre de la categoría" autofocus @keydown.enter.prevent="createCategory" />
+                            <Button icon="pi pi-check" :loading="creatingCategory" v-tooltip.top="'Crear'" @click="createCategory" />
+                            <Button icon="pi pi-times" severity="secondary" text @click="newCategory = null" />
+                        </div>
+                        <Message v-if="err('category_id')" severity="error" size="small" variant="simple">{{ err('category_id') }}</Message>
+                        <p v-else class="mt-1 text-xs text-slate-400">En la web se agrupa por categoría.</p>
+                    </div>
 
-            <div>
-                <label class="mb-1 block text-sm font-medium">Código interno</label>
-                <InputText v-model="form.code" class="w-full" placeholder="Auto (PRD-000001)" :invalid="!!err('code')" />
-                <Message v-if="err('code')" severity="error" size="small" variant="simple">{{ err('code') }}</Message>
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">Código de barras</label>
-                <InputText v-model="form.barcode" class="w-full" placeholder="Auto EAN-13" />
-            </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium" for="pf-price">Precio *</label>
+                        <InputNumber input-id="pf-price" v-model="form.price" mode="currency" currency="PEN" locale="es-PE" class="w-full" :min="0" :invalid="!!err('price')" />
+                        <Message v-if="err('price')" severity="error" size="small" variant="simple">{{ err('price') }}</Message>
+                    </div>
 
-            <div>
-                <label class="mb-1 block text-sm font-medium">Categoría</label>
-                <Select v-model="form.category_id" :options="categories" option-label="name" option-value="id" class="w-full" filter show-clear placeholder="Seleccionar" />
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">Marca</label>
-                <Select v-model="form.brand_id" :options="brands" option-label="name" option-value="id" class="w-full" filter show-clear placeholder="Seleccionar" />
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">Unidad</label>
-                <Select v-model="form.unit_id" :options="units" option-label="name" option-value="id" class="w-full" show-clear placeholder="Seleccionar" />
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">SKU</label>
-                <InputText v-model="form.sku" class="w-full" />
-            </div>
+                    <template v-if="isService">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium" for="pf-duration">Duración (minutos)</label>
+                            <InputNumber input-id="pf-duration" v-model="form.duration_minutes" class="w-full" :min="5" :max="600" :step="5" show-buttons placeholder="Ej. 60" :invalid="!!err('duration_minutes')" />
+                            <Message v-if="err('duration_minutes')" severity="error" size="small" variant="simple">{{ err('duration_minutes') }}</Message>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium" for="pf-cost">Costo (opcional)</label>
+                            <InputNumber input-id="pf-cost" v-model="form.cost" mode="currency" currency="PEN" locale="es-PE" class="w-full" :min="0" :invalid="!!err('cost')" />
+                            <Message v-if="err('cost')" severity="error" size="small" variant="simple">{{ err('cost') }}</Message>
+                            <p v-else class="mt-1 text-xs text-slate-400">Para calcular la ganancia; no se muestra.</p>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium" for="pf-cost">Costo *</label>
+                            <InputNumber input-id="pf-cost" v-model="form.cost" mode="currency" currency="PEN" locale="es-PE" class="w-full" :min="0" :invalid="!!err('cost')" />
+                            <Message v-if="err('cost')" severity="error" size="small" variant="simple">{{ err('cost') }}</Message>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium" for="pf-stock-min">Avisar cuando queden</label>
+                            <InputNumber input-id="pf-stock-min" v-model="form.stock_min" class="w-full" :min="0" suffix=" u." />
+                            <p class="mt-1 text-xs text-slate-400">El stock se ingresa con Compras.</p>
+                        </div>
+                    </template>
+                </section>
 
-            <div>
-                <label class="mb-1 block text-sm font-medium">Costo *</label>
-                <InputNumber v-model="form.cost" mode="currency" currency="PEN" locale="es-PE" class="w-full" :invalid="!!err('cost')" />
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">Precio venta *</label>
-                <InputNumber v-model="form.price" mode="currency" currency="PEN" locale="es-PE" class="w-full" :invalid="!!err('price')" />
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">Precio mayorista</label>
-                <InputNumber v-model="form.wholesale_price" mode="currency" currency="PEN" locale="es-PE" class="w-full" />
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">Precio oferta</label>
-                <InputNumber v-model="form.offer_price" mode="currency" currency="PEN" locale="es-PE" class="w-full" />
-            </div>
+                <section class="space-y-4 rounded-xl border border-[var(--surface-border)] p-4">
+                    <p class="flex items-center gap-2 text-sm font-semibold"><i class="pi pi-globe text-emerald-500"></i> Lo que ve el cliente en la web</p>
 
-            <div v-if="!isService">
-                <label class="mb-1 block text-sm font-medium">Stock mínimo</label>
-                <InputNumber v-model="form.stock_min" class="w-full" :min="0" />
-            </div>
-            <div v-if="!isService">
-                <label class="mb-1 block text-sm font-medium">Stock máximo</label>
-                <InputNumber v-model="form.stock_max" class="w-full" :min="0" />
-            </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">Foto</label>
+                        <label
+                            class="flex cursor-pointer items-center gap-4 rounded-lg border-2 border-dashed border-[var(--surface-border)] p-3 transition hover:border-emerald-400"
+                            @dragover.prevent
+                            @drop.prevent="onDrop"
+                        >
+                            <span class="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5">
+                                <img v-if="preview" :src="preview" class="h-full w-full object-cover" alt="" />
+                                <i v-else class="pi pi-image text-2xl text-slate-400"></i>
+                            </span>
+                            <span class="text-sm">
+                                <span class="font-medium text-emerald-600 dark:text-emerald-400">{{ preview ? 'Cambiar foto' : 'Subir foto' }}</span>
+                                <span class="block text-xs text-slate-400">Arrástrala aquí o haz clic. JPG, PNG o WEBP, hasta 4 MB.</span>
+                            </span>
+                            <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onFile" />
+                        </label>
+                        <Message v-if="err('image')" severity="error" size="small" variant="simple">{{ err('image') }}</Message>
+                    </div>
 
-            <div v-if="isService">
-                <label class="mb-1 block text-sm font-medium">Duración (minutos)</label>
-                <InputNumber v-model="form.duration_minutes" class="w-full" :min="5" :max="600" placeholder="Ej. 60" :invalid="!!err('duration_minutes')" />
-                <Message v-if="err('duration_minutes')" severity="error" size="small" variant="simple">{{ err('duration_minutes') }}</Message>
-            </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium" for="pf-description">Descripción</label>
+                        <Textarea
+                            id="pf-description"
+                            v-model="form.description"
+                            class="w-full"
+                            rows="3"
+                            auto-resize
+                            maxlength="600"
+                            :placeholder="isService ? 'Qué es, para qué sirve y qué resultados esperar.' : 'Qué es, para qué sirve y cómo se usa.'"
+                        />
+                        <p class="mt-1 flex justify-between text-xs text-slate-400">
+                            <span>Dos o tres líneas bastan.</span>
+                            <span>{{ form.description?.length ?? 0 }}/600</span>
+                        </p>
+                    </div>
+                </section>
 
-            <div class="md:col-span-2">
-                <label class="mb-1 block text-sm font-medium">Descripción</label>
-                <Textarea v-model="form.description" class="w-full" rows="2" auto-resize />
-                <p class="mt-1 text-xs text-slate-400">Es la que se muestra en la web.</p>
-            </div>
-
-            <div class="md:col-span-2">
-                <label class="mb-1 block text-sm font-medium">Imagen</label>
-                <div class="flex items-center gap-3">
-                    <span v-if="preview" class="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5">
-                        <img :src="preview" class="h-full w-full object-cover" alt="" />
-                    </span>
-                    <input type="file" accept="image/*" class="text-sm" @change="onFile" />
-                </div>
-                <Message v-if="err('image')" severity="error" size="small" variant="simple">{{ err('image') }}</Message>
-            </div>
-
-            <div class="flex items-center gap-2">
-                <ToggleSwitch v-model="form.is_active" input-id="active" />
-                <label for="active" class="text-sm font-medium">Activo</label>
-            </div>
-            <div>
-                <div class="flex items-center gap-2">
-                    <ToggleSwitch
-                        :model-value="form.web_published ?? false"
-                        input-id="web-published"
-                        @update:model-value="(value: boolean) => (form.web_published = value)"
+                <section>
+                    <Button
+                        :label="showMore ? 'Ocultar más datos' : `Más datos (códigos${isService ? '' : ', marca, unidad'}, ofertas)`"
+                        :icon="showMore ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+                        text
+                        size="small"
+                        @click="showMore = !showMore"
                     />
-                    <label for="web-published" class="text-sm font-medium">Publicar en la web</label>
-                </div>
-                <p class="mt-1 text-xs text-slate-400">Se muestra en sinexcusas.org.pe con su imagen, descripción y precio.</p>
+                    <div v-if="showMore" class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">Código interno</label>
+                            <InputText v-model="form.code" class="w-full" placeholder="Automático (PRD-000001)" :invalid="!!err('code')" />
+                            <Message v-if="err('code')" severity="error" size="small" variant="simple">{{ err('code') }}</Message>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">Precio oferta</label>
+                            <InputNumber v-model="form.offer_price" mode="currency" currency="PEN" locale="es-PE" class="w-full" :min="0" />
+                        </div>
+                        <template v-if="!isService">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium">Código de barras</label>
+                                <InputText v-model="form.barcode" class="w-full" placeholder="Automático (EAN-13)" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium">SKU</label>
+                                <InputText v-model="form.sku" class="w-full" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium">Marca</label>
+                                <Select v-model="form.brand_id" :options="brands" option-label="name" option-value="id" class="w-full" filter show-clear placeholder="Seleccionar" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium">Unidad</label>
+                                <Select v-model="form.unit_id" :options="units" option-label="name" option-value="id" class="w-full" show-clear placeholder="Seleccionar" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium">Precio mayorista</label>
+                                <InputNumber v-model="form.wholesale_price" mode="currency" currency="PEN" locale="es-PE" class="w-full" :min="0" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium">Stock máximo</label>
+                                <InputNumber v-model="form.stock_max" class="w-full" :min="0" />
+                            </div>
+                        </template>
+                        <div class="flex items-center gap-2 sm:col-span-2">
+                            <ToggleSwitch v-model="form.is_active" input-id="pf-active" />
+                            <label for="pf-active" class="text-sm font-medium">Activo</label>
+                            <span class="text-xs text-slate-400">— inactivo no se vende en el POS ni se ve en la web.</span>
+                        </div>
+                    </div>
+                </section>
             </div>
+
+            <!-- Así se verá en la web -->
+            <aside class="space-y-3 md:sticky md:top-0 md:self-start">
+                <div
+                    class="rounded-xl border p-4 transition"
+                    :class="form.web_published ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10' : 'border-[var(--surface-border)]'"
+                >
+                    <div class="flex items-center justify-between gap-3">
+                        <label for="pf-web" class="font-semibold">Publicar en la web</label>
+                        <ToggleSwitch
+                            :model-value="form.web_published ?? false"
+                            input-id="pf-web"
+                            @update:model-value="(value: boolean) => (form.web_published = value)"
+                        />
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        <template v-if="form.web_published">
+                            Se verá en sinexcusas.org.pe › {{ isService ? 'Servicios' : 'Productos' }}{{ categoryName ? ` › ${categoryName}` : '' }}.
+                        </template>
+                        <template v-else>Solo se usa en el sistema ({{ isService ? 'agenda, atenciones y POS' : 'POS e inventario' }}).</template>
+                    </p>
+                </div>
+
+                <p class="text-xs font-medium uppercase tracking-wider text-slate-400">Así se verá</p>
+                <article class="overflow-hidden rounded-xl border border-[var(--surface-border)] bg-white text-slate-800 shadow-sm" :class="{ 'opacity-50': !form.web_published }">
+                    <div class="grid aspect-[4/3] place-items-center bg-[#FAF6EE]">
+                        <img v-if="preview" :src="preview" class="h-full w-full object-cover" alt="" />
+                        <span v-else class="px-4 text-center text-sm text-[#9A8B6C]">{{ form.name || 'Sin foto' }}</span>
+                    </div>
+                    <div class="space-y-1 p-3">
+                        <p class="text-[10px] uppercase tracking-[.18em] text-[#B08D4B]">{{ categoryName ?? (isService ? 'Otros' : 'Productos') }}</p>
+                        <p class="text-lg leading-tight">{{ form.name || `Nombre del ${noun}` }}</p>
+                        <p class="line-clamp-3 text-xs text-[#7C7263]">{{ form.description || 'Aquí va la descripción.' }}</p>
+                        <div class="flex items-center justify-between pt-1">
+                            <span class="font-semibold">{{ money(form.price) }}</span>
+                            <span v-if="isService && form.duration_minutes" class="text-xs text-[#7C7263]">{{ form.duration_minutes }} min</span>
+                        </div>
+                    </div>
+                </article>
+
+                <ul class="space-y-1 text-xs">
+                    <li v-for="item in checklist" :key="item.label" class="flex items-center gap-2" :class="item.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600'">
+                        <i :class="['pi', item.ok ? 'pi-check-circle' : 'pi-circle']"></i>
+                        {{ item.label }}{{ item.ok ? '' : ': falta' }}
+                    </li>
+                </ul>
+            </aside>
         </div>
 
         <template #footer>

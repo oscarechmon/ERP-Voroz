@@ -23,6 +23,7 @@ use Modules\Integration\Services\WebImporter;
 use Modules\Integration\Services\WebSaleService;
 use Modules\OnlineOrders\Models\OnlineOrder;
 use Modules\OnlineOrders\Models\OnlineOrderStatusHistory;
+use Modules\OnlineOrders\Services\ShippingRates;
 use Modules\Sales\Models\Sale;
 
 /**
@@ -40,6 +41,12 @@ class IntegrationController extends ApiController
         $ids = $request->has('ids') ? array_map('intval', (array) $request->input('ids')) : null;
 
         return $this->ok($this->feed->items($ids));
+    }
+
+    /** Costos de envío que la web cobra: delivery en Lima y envío a provincia. */
+    public function shipping(ShippingRates $rates): JsonResponse
+    {
+        return $this->ok($rates->all());
     }
 
     public function storeProduct(ImportProductRequest $request, ProductImporter $importer): JsonResponse

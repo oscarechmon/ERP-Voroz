@@ -148,6 +148,58 @@ class WebCatalogTest extends TestCase
         $this->assertSame('La de aquí', Category::where('name', 'Faciales')->value('description'));
     }
 
+    public function test_publicar_desde_la_lista_solo_cambia_eso_y_se_avisa_a_la_web(): void
+    {
+        $this->actingAsRole('Administrador', $this->env['company'], $this->env['branch']);
+        $facial = Product::factory()->service()->create(['is_active' => false, 'price' => 120, 'web_published' => null]);
+        config(['integration.web_url' => 'https://web.test']);
+        Http::fake(['web.test/*' => Http::response(['ok' => true])]);
+
+        $this->postJson("/api/v1/products/{$facial->id}/web", ['web_published' => true])
+            ->assertOk()
+            ->assertJsonPath('data.web_published', true)
+            ->assertJsonPath('message', "«{$facial->name}» ya se muestra en la web.");
+        app(CatalogNotifier::class)->flush();
+
+        $fresh = $facial->fresh();
+        $this->assertTrue($fresh->web_published);
+        $this->assertFalse($fresh->is_active, 'Publicar no reactiva lo que estaba inactivo.');
+        $this->assertEquals(120, $fresh->price);
+        Http::assertSent(fn (HttpRequest $request): bool => $request->url() === 'https://web.test/erp/catalogo'
+            && $request['items'][0]['id'] === $facial->id
+            && $request['items'][0]['web_published'] === true);
+    }
+
+    public function test_un_paquete_se_publica_desde_paquetes_y_ventas_no_publica(): void
+    {
+        $this->actingAsRole('Administrador', $this->env['company'], $this->env['branch']);
+        $paquete = Product::factory()->create(['type' => Product::TYPE_PACKAGE]);
+        $this->postJson("/api/v1/products/{$paquete->id}/web", ['web_published' => true])->assertStatus(422);
+
+        $this->actingAsRole('Ventas', $this->env['company'], $this->env['branch']);
+        $crema = Product::factory()->create();
+        $this->postJson("/api/v1/products/{$crema->id}/web", ['web_published' => true])->assertForbidden();
+    }
+
+    public function test_la_lista_separa_productos_y_servicios_y_filtra_lo_publicado(): void
+    {
+        $this->actingAsRole('Administrador', $this->env['company'], $this->env['branch']);
+        $faciales = Category::create(['name' => 'Faciales', 'is_active' => true]);
+        $suplementos = Category::create(['name' => 'Suplementos', 'is_active' => true]);
+        Category::create(['name' => 'Nueva', 'is_active' => true]);
+        Product::factory()->service()->create(['category_id' => $faciales->id, 'web_published' => true]);
+        Product::factory()->service()->create(['category_id' => $faciales->id, 'web_published' => null]);
+        Product::factory()->create(['category_id' => $suplementos->id, 'web_published' => true]);
+
+        $this->getJson('/api/v1/products?type=service')->assertOk()->assertJsonPath('data.meta.total', 2);
+        $this->getJson('/api/v1/products?type=service&web=published')->assertOk()->assertJsonPath('data.meta.total', 1);
+        $this->getJson('/api/v1/products?type=service&web=hidden')->assertOk()->assertJsonPath('data.meta.total', 1);
+
+        // Un servicio no se ofrece en "Suplementos"; una categoría sin nada sirve para ambos.
+        $names = collect($this->getJson('/api/v1/categories?all=1&for=service')->assertOk()->json('data'))->pluck('name')->sort()->values()->all();
+        $this->assertSame(['Faciales', 'Nueva'], $names);
+    }
+
     public function test_un_cambio_de_categoria_se_avisa_a_la_web(): void
     {
         $category = Category::create(['name' => 'Faciales', 'is_active' => true]);

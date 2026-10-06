@@ -59,6 +59,19 @@ class ProductController extends ApiController
         return $this->ok(new ProductResource($model), 'Producto actualizado correctamente.');
     }
 
+    /** Publicar u ocultar en la web con un clic, desde el listado. */
+    public function publish(Request $request, int $product): JsonResponse
+    {
+        $data = $request->validate(['web_published' => ['required', 'boolean']]);
+
+        $model = $this->service->publish($product, $data['web_published']);
+
+        return $this->ok(
+            new ProductResource($model),
+            $model->web_published ? "«{$model->name}» ya se muestra en la web." : "«{$model->name}» ya no se muestra en la web.",
+        );
+    }
+
     public function destroy(int $product): JsonResponse
     {
         $this->service->delete($product);

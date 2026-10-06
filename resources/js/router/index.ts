@@ -73,11 +73,21 @@ const routes: RouteRecordRaw[] = [
                 component: () => import('@/pages/online-orders/OnlineOrders.vue'),
                 meta: { title: 'Pedidos online', permission: 'online_orders.view' },
             },
+            // Productos y servicios se administran por separado (misma pantalla,
+            // cada una con su tipo): lo que se vende en tienda y lo que se atiende.
             {
                 path: 'products',
                 name: 'products',
                 component: () => import('@/pages/catalog/Products.vue'),
-                meta: { title: 'Productos y servicios', permission: 'products.view' },
+                props: { kind: 'product' },
+                meta: { title: 'Productos', permission: 'products.view' },
+            },
+            {
+                path: 'services',
+                name: 'services',
+                component: () => import('@/pages/catalog/Products.vue'),
+                props: { kind: 'service' },
+                meta: { title: 'Servicios', permission: 'products.view' },
             },
             {
                 path: 'categories',

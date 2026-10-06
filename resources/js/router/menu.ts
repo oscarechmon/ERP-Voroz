@@ -19,6 +19,7 @@ export const menu: MenuItem[] = [
         children: [
             { label: 'Agenda', icon: 'pi pi-calendar', to: '/agenda', permission: 'appointments.view' },
             { label: 'Atenciones', icon: 'pi pi-check-square', to: '/attendances', permission: 'attendances.view' },
+            { label: 'Servicios', icon: 'pi pi-sparkles', to: '/services', permission: 'products.view' },
             { label: 'Paquetes', icon: 'pi pi-gift', to: '/packages', permission: 'packages.view' },
             { label: 'Personal', icon: 'pi pi-id-card', to: '/employees', permission: 'employees.view' },
             { label: 'Comisiones', icon: 'pi pi-percentage', to: '/commissions', permission: 'commissions.view' },
@@ -45,7 +46,7 @@ export const menu: MenuItem[] = [
         label: 'Inventario',
         icon: 'pi pi-box',
         children: [
-            { label: 'Productos y servicios', icon: 'pi pi-tag', to: '/products', permission: 'products.view' },
+            { label: 'Productos', icon: 'pi pi-tag', to: '/products', permission: 'products.view' },
             { label: 'Categorías', icon: 'pi pi-sitemap', to: '/categories', permission: 'categories.view' },
             { label: 'Marcas', icon: 'pi pi-bookmark', to: '/brands', permission: 'brands.view' },
             { label: 'Stock', icon: 'pi pi-database', to: '/stock', permission: 'stock.view' },

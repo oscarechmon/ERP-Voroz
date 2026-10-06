@@ -48,10 +48,15 @@ class OnlineOrderSync
                 'customer_name' => $data['customer']['name'] ?? null,
                 'customer_email' => $data['customer']['email'] ?? null,
                 'recipient_name' => $data['recipient_name'],
+                'document_type' => $data['document_type'] ?? null,
+                'document_number' => $data['document_number'] ?? null,
                 'phone' => $data['phone'] ?? null,
                 'address' => $data['address'] ?? null,
                 'district' => $data['district'] ?? null,
                 'reference' => $data['reference'] ?? null,
+                'department' => $data['department'] ?? null,
+                'province' => $data['province'] ?? null,
+                'agency' => $data['agency'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'subtotal' => $data['subtotal'],
                 'delivery_fee' => $data['delivery_fee'] ?? 0,
@@ -121,6 +126,7 @@ class OnlineOrderSync
                     'price' => $i['unit_price'],
                 ], $data['items']),
                 'delivery_fee' => $data['delivery_fee'] ?? 0,
+                'delivery_label' => OnlineOrder::fulfillmentLabel($order->fulfillment),
                 'payments' => [[
                     'method' => $data['gateway'] ?? 'izipay',
                     'amount' => $data['total'],
@@ -146,7 +152,7 @@ class OnlineOrderSync
         ])->all();
 
         if ((float) $order->delivery_fee > 0) {
-            $items[] = ['product_id' => null, 'description' => 'Delivery', 'quantity' => 1, 'price' => (float) $order->delivery_fee, 'subtotal' => (float) $order->delivery_fee];
+            $items[] = ['product_id' => null, 'description' => OnlineOrder::fulfillmentLabel($order->fulfillment), 'quantity' => 1, 'price' => (float) $order->delivery_fee, 'subtotal' => (float) $order->delivery_fee];
         }
 
         return $this->history->write([

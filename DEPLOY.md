@@ -95,9 +95,13 @@ despliegue hay que sembrarlo a mano:
    php artisan db:seed --class="Modules\Users\Database\Seeders\RolePermissionSeeder" --force
    php artisan db:seed --class="Modules\Settings\Database\Seeders\CompanySeeder" --force
    php artisan db:seed --class="Modules\Users\Database\Seeders\UserSeeder" --force
-   php artisan storage:link
+   (cd public && ln -s ../storage/app/public storage)
    php artisan optimize
    ```
+
+   El enlace de las fotos se crea con `ln -s`: `php artisan storage:link` no
+   funciona en Hostinger (tiene desactivadas `symlink()` y `exec()` en PHP).
+   Si faltara, las fotos se ven igual: las sirve Laravel, solo que más lento.
 
    No uses `db:seed` a secas: el `DatabaseSeeder` carga productos, clientes,
    stock y ventas de demostración. `UserSeeder` crea seis usuarios con la
@@ -248,7 +252,7 @@ subdominio. Si subes la versión en hPanel, súbela también en el workflow.
 | El subdominio muestra la página por defecto de Hostinger | Falta el `.htaccess` en `public_html/sistema` (o no se extrajo el zip). |
 | Error 419 o la sesión se cierra sola | Se cambió el `.env` sin `php artisan optimize`. |
 | El login acepta y vuelve a pedir credenciales | `SANCTUM_STATEFUL_DOMAINS` no es `sistema.sinexcusas.org.pe`. |
-| Imágenes rotas | Con esta versión `/storage/…` responde aunque falte `public/storage`. Si aun así fallan, `APP_URL` está mal o la foto no existe en `storage/app/public`. |
+| Imágenes rotas | `/storage/…` responde aunque falte `public/storage`. Si aun así fallan: `php artisan route:list --path=storage` debe mostrar `storage.public` (si no, `php artisan optimize` por SSH), o la foto no existe en `storage/app/public`. |
 | Un menú nuevo (Centro, Pedidos online) no aparece | Faltan los permisos nuevos: ejecuta el `RolePermissionSeeder` (ver arriba) y vuelve a entrar. |
 | La web no se entera de los cambios del catálogo | Revisa `INTEGRATION_WEB_URL` y que `INTEGRATION_TOKEN` sea igual a `ERP_TOKEN` de la web; después `php artisan optimize`. El log del sistema dice "No se pudo avisar a la web…". |
 | `Este PHP no tiene la extensión zip` | hPanel → Configuración PHP → activar `zip`. |

@@ -171,10 +171,33 @@ class ReleaseController extends Controller
                 }
             }
 
+            $this->forgetCompiled($target);
             $moved++;
         }
 
         return $moved;
+    }
+
+    /**
+     * PHP guarda el código ya compilado (OPcache) y en el hosting solo revisa
+     * si un archivo cambió cada pocos segundos. Este proceso arrancó con la
+     * versión anterior: si no se olvida, `optimize` cachea la configuración y
+     * las rutas leyendo archivos viejos (así una vez quedó sin publicar la ruta
+     * de las fotos, aunque el archivo nuevo ya estaba en su sitio).
+     */
+    private function forgetCompiled(string $file): void
+    {
+        if (str_ends_with($file, '.php') && function_exists('opcache_invalidate')) {
+            @opcache_invalidate($file, true);
+        }
+    }
+
+    /** Las cachés de configuración y rutas: cada paso de artisan las reescribe. */
+    private function forgetCompiledCaches(): void
+    {
+        foreach (glob(app()->bootstrapPath('cache/*.php')) ?: [] as $file) {
+            $this->forgetCompiled($file);
+        }
     }
 
     /**
@@ -198,9 +221,12 @@ class ReleaseController extends Controller
         $output = [];
 
         foreach (['optimize:clear' => [], 'migrate' => ['--force' => true], 'optimize' => []] as $command => $options) {
+            $this->forgetCompiledCaches();
             Artisan::call($command, $options);
             $output[$command] = trim(Artisan::output());
         }
+
+        $this->forgetCompiledCaches();
 
         if ($link = $this->linkStorage()) {
             $output['storage:link'] = $link;

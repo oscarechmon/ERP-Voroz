@@ -176,8 +176,10 @@ El sistema es **el único lugar donde se opera el centro**:
   uno) y paquetes; compras, ajustes, kardex.
 - **Lo que muestra la web:** en cada producto, servicio o paquete, la foto, la
   descripción, **Publicar en la web** y, en un servicio, su duración. La web es
-  un cascarón: lee todo eso de aquí por la API y muestra la foto desde aquí
-  (por eso este sistema necesita `storage:link` y un `APP_URL` correcto).
+  un cascarón: lee todo eso de aquí por la API y muestra la foto desde aquí,
+  `https://sistema.sinexcusas.org.pe/storage/…`. El despliegue crea el enlace
+  `public/storage` si falta; sin él, las fotos las sirve Laravel
+  (`PublicFileController`), así que nunca dan 404.
 
 La web conserva solo su contenido (textos y fotos de sus páginas), los datos
 del sitio y la tienda (carrito, cobro con Izipay, "Mis pedidos").
@@ -185,7 +187,7 @@ del sitio y la tienda (carrito, cobro con Izipay, "Mis pedidos").
 | Qué pasa | Cómo viaja |
 |---|---|
 | Cambias un producto, servicio, paquete, su stock, su foto o si se publica | El sistema avisa a la web al instante (`POST /erp/catalogo`) y la web lo vuelve a leer |
-| Pasas lo que la web tenía (una vez, `php artisan erp:fichas` en la web) | La web manda aquí fotos, descripciones y lo publicado (`POST /integration/products/{id}/web`) |
+| Se despliega la web (`erp:fichas`, también a mano) | La web manda aquí las fotos que aquí faltan y, si aquí no se decidió, descripción y lo publicado (`POST /integration/products/{id}/web`) |
 | Alguien crea una cuenta en la tienda | La web lo enlaza con su ficha de aquí (la crea si no existe) |
 | Se crea o se cobra un pedido en la tienda | La web lo manda aquí (`POST /integration/orders`); cobrado, se registra como **venta del canal web** y descuenta stock |
 | Mueves un pedido online (preparar, enviar, entregar, anular) | Se avisa a la web (`POST /erp/pedidos/{código}/estado`) y el cliente lo ve; anular un pedido cobrado anula su venta y devuelve el stock |
@@ -246,7 +248,7 @@ subdominio. Si subes la versión en hPanel, súbela también en el workflow.
 | El subdominio muestra la página por defecto de Hostinger | Falta el `.htaccess` en `public_html/sistema` (o no se extrajo el zip). |
 | Error 419 o la sesión se cierra sola | Se cambió el `.env` sin `php artisan optimize`. |
 | El login acepta y vuelve a pedir credenciales | `SANCTUM_STATEFUL_DOMAINS` no es `sistema.sinexcusas.org.pe`. |
-| Imágenes rotas | `APP_URL` mal, o falta `php artisan storage:link`. |
+| Imágenes rotas | Con esta versión `/storage/…` responde aunque falte `public/storage`. Si aun así fallan, `APP_URL` está mal o la foto no existe en `storage/app/public`. |
 | Un menú nuevo (Centro, Pedidos online) no aparece | Faltan los permisos nuevos: ejecuta el `RolePermissionSeeder` (ver arriba) y vuelve a entrar. |
 | La web no se entera de los cambios del catálogo | Revisa `INTEGRATION_WEB_URL` y que `INTEGRATION_TOKEN` sea igual a `ERP_TOKEN` de la web; después `php artisan optimize`. El log del sistema dice "No se pudo avisar a la web…". |
 | `Este PHP no tiene la extensión zip` | hPanel → Configuración PHP → activar `zip`. |

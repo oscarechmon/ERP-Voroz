@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PublicFileController;
 use App\Http\Controllers\ReleaseController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,19 @@ use Modules\Users\Http\Resources\UserResource;
 | límite alto.
 */
 Route::post('deploy/release', ReleaseController::class)->middleware('throttle:120,10')->name('deploy.release');
+
+/*
+|--------------------------------------------------------------------------
+| Fotos subidas (ver PublicFileController)
+|--------------------------------------------------------------------------
+| Solo se llega aquí si falta el enlace public/storage; con él, Apache las
+| entrega directo. Sin sesión ni cookies: es un archivo, y la web pública lo
+| pide en cada página del catálogo.
+*/
+Route::get('storage/{path}', PublicFileController::class)
+    ->where('path', '.*')
+    ->withoutMiddleware('web')
+    ->name('storage.public');
 
 /*
 |--------------------------------------------------------------------------

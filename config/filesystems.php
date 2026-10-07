@@ -33,7 +33,10 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Laravel lo serviría en /storage/{path} solo con URL firmada, y
+            // esa ruta taparía la de las fotos públicas (storage.public): sin
+            // el enlace public/storage, cada foto del catálogo daba 404.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

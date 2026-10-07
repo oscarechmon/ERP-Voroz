@@ -202,7 +202,34 @@ class ReleaseController extends Controller
             $output[$command] = trim(Artisan::output());
         }
 
+        if ($link = $this->linkStorage()) {
+            $output['storage:link'] = $link;
+        }
+
         return $output;
+    }
+
+    /**
+     * El enlace public/storage, para que Apache entregue las fotos subidas sin
+     * pasar por PHP. Si falta (primer despliegue, o se perdió), se crea; si el
+     * hosting no lo permite, las fotos se ven igual (PublicFileController).
+     */
+    private function linkStorage(): ?string
+    {
+        // file_exists() da false también con un enlace roto: --force lo rehace.
+        if (file_exists(public_path('storage'))) {
+            return null;
+        }
+
+        try {
+            Artisan::call('storage:link', ['--force' => true]);
+
+            return trim(Artisan::output());
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo crear public/storage; las fotos se sirven por la ruta storage.public.', ['error' => $e->getMessage()]);
+
+            return 'Sin enlace ('.$e->getMessage().'): las fotos se sirven desde Laravel.';
+        }
     }
 
     private function fail(string $message): JsonResponse

@@ -10,13 +10,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Intervention\Image\ImageManager;
 use Modules\Catalog\Models\Product;
+use Modules\Catalog\Models\ProductImage;
 use Modules\Catalog\Repositories\Contracts\ProductRepositoryInterface;
 
 /**
  * Lógica de negocio de productos: correlativo de código interno, generación
- * automática de código de barras, procesamiento de imagen y escaneo por barras.
+ * automática de código de barras, procesamiento de imágenes (la principal y
+ * las adicionales de la ficha web) y escaneo por barras.
  */
 class ProductService extends BaseService
 {
@@ -34,7 +37,8 @@ class ProductService extends BaseService
             $data['company_id'] = $data['company_id'] ?? optional(auth()->user())->company_id;
 
             $image = $data['image'] ?? null;
-            unset($data['image']);
+            $gallery = $data['gallery'] ?? [];
+            unset($data['image'], $data['gallery'], $data['remove_images']);
 
             /** @var Product $product */
             $product = $this->products->create($data);
@@ -50,6 +54,8 @@ class ProductService extends BaseService
                 $product->saveQuietly();
             }
 
+            $this->syncGallery($product, [], $gallery);
+
             return $product->fresh();
         });
     }
@@ -59,16 +65,24 @@ class ProductService extends BaseService
         $this->guardPackage($id);
 
         $image = $data['image'] ?? null;
-        unset($data['image']);
+        $gallery = $data['gallery'] ?? [];
+        $remove = $data['remove_images'] ?? [];
+        unset($data['image'], $data['gallery'], $data['remove_images']);
 
-        /** @var Product $product */
-        $product = $this->products->update($id, $data);
+        return DB::transaction(function () use ($id, $data, $image, $gallery, $remove): Product {
+            /** @var Product $product */
+            $product = $this->products->update($id, $data);
 
-        if ($image instanceof UploadedFile) {
-            $this->replaceImage($product, $image);
-        }
+            // Antes que la principal: si sobran fotos, no se toca ningún archivo.
+            $this->syncGallery($product, $remove, $gallery);
 
-        return $product->fresh();
+            if ($image instanceof UploadedFile) {
+                $this->replaceImage($product, $image);
+            }
+
+            // El aviso a la web sale al terminar la petición: ya lleva las fotos.
+            return $product->fresh();
+        });
     }
 
     /**
@@ -98,6 +112,46 @@ class ProductService extends BaseService
 
         $product->image_path = $this->storeImage($image, $product->id);
         $product->saveQuietly();
+    }
+
+    /**
+     * Fotos adicionales de la ficha web: quita las indicadas (solo si son de
+     * este producto) y agrega las nuevas al final, hasta ProductImage::MAX.
+     *
+     * @param  array<int, mixed>  $removeIds
+     * @param  array<int, mixed>  $files
+     */
+    private function syncGallery(Product $product, array $removeIds, array $files): void
+    {
+        $files = array_values(array_filter($files, fn ($file) => $file instanceof UploadedFile));
+
+        if ($removeIds === [] && $files === []) {
+            return;
+        }
+
+        $current = ProductImage::where('product_id', $product->id)->get();
+        $removed = $current->whereIn('id', array_map('intval', $removeIds));
+
+        if ($current->count() - $removed->count() + count($files) > ProductImage::MAX) {
+            throw ValidationException::withMessages([
+                'gallery' => 'Puedes tener hasta ' . ProductImage::MAX . ' fotos adicionales: quita alguna antes de subir más.',
+            ]);
+        }
+
+        foreach ($removed as $image) {
+            $image->delete();
+            // El archivo se borra solo si el cambio se guarda de verdad.
+            DB::afterCommit(fn () => Storage::disk('public')->delete($image->path));
+        }
+
+        $order = (int) $current->max('sort_order');
+        foreach ($files as $file) {
+            ProductImage::create([
+                'product_id' => $product->id,
+                'path' => $this->storeImage($file, $product->id),
+                'sort_order' => ++$order,
+            ]);
+        }
     }
 
     public function delete(int|string $id): bool

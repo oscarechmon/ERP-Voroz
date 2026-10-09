@@ -21,6 +21,11 @@ class ProductResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'image_url' => $this->image_url,
+            // Fotos adicionales de la ficha web: solo al pedir un ítem (el formulario).
+            'gallery' => $this->whenLoaded('images', fn () => $this->images
+                ->map(fn ($image) => ['id' => $image->id, 'url' => $image->url])
+                ->values()
+                ->all()),
             'category_id' => $this->category_id,
             'brand_id' => $this->brand_id,
             'unit_id' => $this->unit_id,

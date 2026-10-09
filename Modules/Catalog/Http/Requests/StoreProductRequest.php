@@ -7,6 +7,7 @@ namespace Modules\Catalog\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Catalog\Models\Product;
+use Modules\Catalog\Models\ProductImage;
 
 /** Validación para crear un producto. */
 class StoreProductRequest extends FormRequest
@@ -40,6 +41,11 @@ class StoreProductRequest extends FormRequest
             'web_published' => ['nullable', 'boolean'],
             'duration_minutes' => ['nullable', 'integer', 'min:5', 'max:600'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            // Fotos adicionales de la ficha web (la principal es `image`).
+            'gallery' => ['nullable', 'array', 'max:' . ProductImage::MAX],
+            'gallery.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'remove_images' => ['nullable', 'array'],
+            'remove_images.*' => ['integer'],
         ];
     }
 
@@ -55,6 +61,10 @@ class StoreProductRequest extends FormRequest
             'price.required' => 'El precio de venta es obligatorio.',
             'price.min' => 'El precio no puede ser negativo.',
             'image.max' => 'La imagen no debe superar los 4 MB.',
+            'gallery.max' => 'Puedes subir hasta ' . ProductImage::MAX . ' fotos adicionales.',
+            'gallery.*.image' => 'Cada foto adicional debe ser JPG, PNG o WEBP.',
+            'gallery.*.mimes' => 'Cada foto adicional debe ser JPG, PNG o WEBP.',
+            'gallery.*.max' => 'Cada foto adicional debe pesar hasta 4 MB.',
         ];
     }
 

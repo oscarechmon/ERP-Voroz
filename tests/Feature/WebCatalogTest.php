@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Modules\Catalog\Models\Category;
 use Modules\Catalog\Models\Product;
+use Modules\Catalog\Models\ProductImage;
 use Modules\Integration\Services\CatalogNotifier;
 use Modules\Packages\Models\Package;
 use Modules\Packages\Services\PackageService;
@@ -215,5 +216,90 @@ class WebCatalogTest extends TestCase
         Http::assertSent(fn (HttpRequest $request): bool => $request->url() === 'https://web.test/erp/catalogo'
             && $request['items'][0]['id'] === $facial->id
             && $request['items'][0]['category_description'] === 'Nueva descripción');
+    }
+
+    public function test_las_fotos_adicionales_se_suben_se_quitan_y_llegan_a_la_web(): void
+    {
+        $this->actingAsRole('Administrador', $this->env['company'], $this->env['branch']);
+        $facial = Product::factory()->service()->create(['image_path' => 'products/1/principal.webp']);
+        config(['integration.web_url' => 'https://web.test']);
+        Http::fake(['web.test/*' => Http::response(['ok' => true])]);
+
+        $this->withHeader('Accept', 'application/json')->post("/api/v1/products/{$facial->id}", [
+            '_method' => 'PUT',
+            'gallery' => [UploadedFile::fake()->image('antes.jpg', 900, 900), UploadedFile::fake()->image('despues.jpg', 900, 900)],
+        ])->assertOk();
+        app(CatalogNotifier::class)->flush();
+
+        $gallery = $this->getJson("/api/v1/products/{$facial->id}")->assertOk()->json('data.gallery');
+        $this->assertCount(2, $gallery);
+        [$antes, $despues] = $facial->images()->get()->all();
+        Storage::disk('public')->assertExists([$antes->path, $despues->path]);
+        $this->assertSame('products/1/principal.webp', $facial->fresh()->image_path, 'La principal no cambia.');
+
+        $item = $this->feedItem($facial);
+        $this->assertStringEndsWith('principal.webp', $item['image_url']);
+        $this->assertCount(2, $item['gallery']);
+        $this->assertStringStartsWith('http', $item['gallery'][0], 'La web la muestra tal cual: dirección completa.');
+        $this->assertStringEndsWith($antes->path, $item['gallery'][0]);
+        Http::assertSent(fn (HttpRequest $request): bool => count($request['items'][0]['gallery']) === 2);
+
+        // Se quita una y se agrega otra: la nueva va al final.
+        $this->withHeader('Accept', 'application/json')->post("/api/v1/products/{$facial->id}", [
+            '_method' => 'PUT',
+            'remove_images' => [$antes->id],
+            'gallery' => [UploadedFile::fake()->image('otra.jpg', 900, 900)],
+        ])->assertOk();
+
+        $paths = $facial->images()->pluck('path')->all();
+        $this->assertCount(2, $paths);
+        $this->assertSame($despues->path, $paths[0]);
+        Storage::disk('public')->assertMissing($antes->path);
+    }
+
+    public function test_no_se_pasa_del_maximo_de_fotos_adicionales(): void
+    {
+        $this->actingAsRole('Administrador', $this->env['company'], $this->env['branch']);
+        $crema = Product::factory()->create();
+        $otro = Product::factory()->create();
+        foreach (range(1, ProductImage::MAX) as $i) {
+            ProductImage::create(['product_id' => $crema->id, 'path' => "products/{$crema->id}/{$i}.webp", 'sort_order' => $i]);
+        }
+        $ajena = ProductImage::create(['product_id' => $otro->id, 'path' => "products/{$otro->id}/x.webp"]);
+
+        // Quitar una foto de otro producto no hace lugar.
+        $this->withHeader('Accept', 'application/json')->post("/api/v1/products/{$crema->id}", [
+            '_method' => 'PUT',
+            'price' => 99,
+            'remove_images' => [$ajena->id],
+            'gallery' => [UploadedFile::fake()->image('una-mas.jpg')],
+        ])->assertStatus(422)->assertJsonValidationErrors('gallery');
+
+        $this->assertSame(ProductImage::MAX, $crema->images()->count());
+        $this->assertNotNull($ajena->fresh());
+        $this->assertNotEquals(99, $crema->fresh()->price, 'Si las fotos no pasan, no se guarda nada.');
+
+        // Quitando una, sí entra.
+        $this->withHeader('Accept', 'application/json')->post("/api/v1/products/{$crema->id}", [
+            '_method' => 'PUT',
+            'remove_images' => [$crema->images()->value('id')],
+            'gallery' => [UploadedFile::fake()->image('una-mas.jpg')],
+        ])->assertOk();
+        $this->assertSame(ProductImage::MAX, $crema->images()->count());
+    }
+
+    public function test_un_producto_nuevo_nace_con_sus_fotos_adicionales(): void
+    {
+        $this->actingAsRole('Administrador', $this->env['company'], $this->env['branch']);
+
+        $id = $this->withHeader('Accept', 'application/json')->post('/api/v1/products', [
+            'type' => 'product', 'name' => 'Colágeno', 'cost' => 50, 'price' => 90,
+            'image' => UploadedFile::fake()->image('principal.jpg'),
+            'gallery' => [UploadedFile::fake()->image('tabla.jpg'), UploadedFile::fake()->image('uso.jpg')],
+        ])->assertCreated()->json('data.id');
+
+        $product = Product::findOrFail($id);
+        $this->assertNotNull($product->image_path);
+        $this->assertSame(2, $product->images()->count());
     }
 }

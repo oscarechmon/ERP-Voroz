@@ -48,21 +48,21 @@ class ProductController extends ApiController
 
     public function store(StoreProductRequest $request): JsonResponse
     {
-        $product = $this->service->create($request->validated() + ['image' => $request->file('image')]);
+        $product = $this->service->create($request->validated() + ['image' => $request->file('image'), 'gallery' => $request->file('gallery', [])]);
 
         return $this->created(new ProductResource($product), 'Producto creado correctamente.');
     }
 
     public function show(int $product): JsonResponse
     {
-        $model = $this->service->find($product, ['category', 'brand', 'unit', 'barcodes']);
+        $model = $this->service->find($product, ['category', 'brand', 'unit', 'barcodes', 'images']);
 
         return $this->ok(new ProductResource($model));
     }
 
     public function update(UpdateProductRequest $request, int $product): JsonResponse
     {
-        $model = $this->service->update($product, $request->validated() + ['image' => $request->file('image')]);
+        $model = $this->service->update($product, $request->validated() + ['image' => $request->file('image'), 'gallery' => $request->file('gallery', [])]);
 
         return $this->ok(new ProductResource($model), 'Producto actualizado correctamente.');
     }

@@ -19,6 +19,8 @@ export interface Product {
     name: string;
     description: string | null;
     image_url: string | null;
+    /** Fotos adicionales de la ficha web; solo vienen al pedir un ítem (`get`). */
+    gallery?: ProductPhoto[];
     category_id: number | null;
     brand_id: number | null;
     unit_id: number | null;
@@ -42,6 +44,24 @@ export interface Product {
     duration_minutes: number | null;
     created_at: string | null;
 }
+
+/** Foto adicional de un producto o servicio (la principal es `image_url`). */
+export interface ProductPhoto {
+    id: number;
+    url: string;
+}
+
+/** Cuántas fotos adicionales admite cada ítem (igual que en el servidor). */
+export const GALLERY_MAX = 8;
+
+/** Lo que se envía al guardar: los datos, la foto principal y los cambios en las adicionales. */
+export type ProductPayload = Omit<Partial<Product>, 'gallery'> & {
+    image?: File | null;
+    /** Fotos adicionales nuevas. */
+    gallery?: File[];
+    /** Ids de las fotos adicionales que se quitan. */
+    remove_images?: number[];
+};
 
 /** Datos de la etiqueta imprimible de un producto (código de barras + QR). */
 export interface ProductLabel {
@@ -91,18 +111,19 @@ export const productsApi = {
     async get(id: number): Promise<Product> {
         return unwrap<Product>(await http.get(`/products/${id}`));
     },
-    /** Crea/actualiza soportando imagen: usa multipart cuando hay archivo. */
-    async save(payload: Partial<Product> & { image?: File | null }, id?: number): Promise<Product> {
-        const hasFile = payload.image instanceof File;
+    /** Crea/actualiza soportando imágenes: usa multipart cuando hay algún archivo. */
+    async save(payload: ProductPayload, id?: number): Promise<Product> {
+        const hasFile = payload.image instanceof File || (payload.gallery?.length ?? 0) > 0;
         let body: FormData | Record<string, unknown> = { ...payload };
         const config: Record<string, unknown> = {};
 
         if (hasFile) {
             const fd = new FormData();
+            const field = (v: unknown): string | Blob => (v instanceof File ? v : typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
             Object.entries(payload).forEach(([k, v]) => {
                 if (v === null || v === undefined) return;
-                if (k === 'image' && v instanceof File) fd.append('image', v);
-                else fd.append(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+                if (Array.isArray(v)) v.forEach((item) => fd.append(`${k}[]`, field(item)));
+                else fd.append(k, field(v));
             });
             if (id) fd.append('_method', 'PUT'); // method spoofing para multipart
             body = fd;

@@ -11,8 +11,8 @@ use Modules\Packages\Models\Package;
 /**
  * Todo lo que la web muestra de cada ítem del catálogo: nombre, categoría,
  * precio, stock y estado, y también lo de la web pública (si se publica,
- * imagen, descripción y, en un servicio, su duración). La web no guarda nada
- * de esto: lo lee de aquí.
+ * imagen y fotos adicionales, descripción y, en un servicio, su duración).
+ * La web no guarda nada de esto: lo lee de aquí.
  *
  * Incluye los eliminados (como inactivos) para que la web también los oculte.
  */
@@ -34,7 +34,7 @@ class CatalogFeed
             ->keyBy('product_id');
 
         return Product::withTrashed()
-            ->with(['category:id,name,description', 'unit:id,name'])
+            ->with(['category:id,name,description', 'unit:id,name', 'images:id,product_id,path,sort_order'])
             ->when($ids !== null, fn ($q) => $q->whereIn('id', $ids))
             ->addSelect(['web_stock' => Stock::select('quantity')
                 ->whereColumn('stocks.product_id', 'products.id')
@@ -68,6 +68,8 @@ class CatalogFeed
             'web_published' => $product->web_published,
             // Dirección completa: la web la muestra tal cual, desde aquí.
             'image_url' => $product->image_url ? url($product->image_url) : null,
+            // Fotos adicionales: la ficha las muestra debajo de la principal.
+            'gallery' => $product->images->map(fn ($image) => url($image->url))->values()->all(),
             'duration_minutes' => $product->duration_minutes,
             // Un paquete lleva sus sesiones, vigencia y servicios (ids de aquí).
             'package' => $product->isPackage() && $package ? [

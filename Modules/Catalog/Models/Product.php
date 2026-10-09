@@ -119,6 +119,12 @@ class Product extends Model implements Auditable
         return $this->hasMany(ProductBarcode::class);
     }
 
+    /** Fotos adicionales para la ficha de la web, en el orden en que se subieron. */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     /** Existencias por almacén (módulo Inventario). */
     public function stocks(): HasMany
     {
